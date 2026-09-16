@@ -15,7 +15,12 @@ locals {
   # Bucket names are global across AWS, so the account ID keeps this unique
   # without putting the ID in the repo.
   bucket_name = "inftrees-web-${var.environment}-${data.aws_caller_identity.current.account_id}"
-  all_names   = concat([var.domain_name], var.alternate_names)
+
+  # With prefix routing on, the wildcard joins the certificate, the aliases
+  # and the DNS records, so any label under the domain resolves and is served.
+  prefix_routing = var.wildcard_prefix_routing != null
+  wildcard_names = local.prefix_routing ? ["*.${var.domain_name}"] : []
+  all_names      = concat([var.domain_name], var.alternate_names, local.wildcard_names)
 
   tags = {
     Project     = "InfluencerTrees"
@@ -96,7 +101,7 @@ resource "aws_s3_bucket_policy" "web" {
 
 resource "aws_acm_certificate" "site" {
   domain_name               = var.domain_name
-  subject_alternative_names = var.alternate_names
+  subject_alternative_names = concat(var.alternate_names, local.wildcard_names)
   validation_method         = "DNS"
   tags                      = local.tags
 
@@ -107,6 +112,13 @@ resource "aws_acm_certificate" "site" {
   }
 }
 
+# A wildcard and its base name validate with the same record, and ACM lists
+# both. Creating it twice makes Terraform fight itself, so the wildcard entry
+# is skipped whenever its base name is also on the certificate.
+locals {
+  cert_names = [for dvo in aws_acm_certificate.site.domain_validation_options : dvo.domain_name]
+}
+
 resource "aws_route53_record" "cert_validation" {
   for_each = {
     for dvo in aws_acm_certificate.site.domain_validation_options : dvo.domain_name => {
@@ -114,6 +126,7 @@ resource "aws_route53_record" "cert_validation" {
       type   = dvo.resource_record_type
       record = dvo.resource_record_value
     }
+    if !(startswith(dvo.domain_name, "*.") && contains(local.cert_names, trimprefix(dvo.domain_name, "*.")))
   }
 
   zone_id         = var.hosted_zone_id
@@ -147,6 +160,24 @@ data "aws_cloudfront_cache_policy" "caching_optimized" {
   name = "Managed-CachingOptimized"
 }
 
+# Prefix routing: one distribution serves many hostnames by rewriting each
+# request's path to a folder named after the first hostname label, before the
+# cache lookup. pr-12.preview.example.com/x becomes /pr-12/x in the bucket.
+# The bare domain maps to the folder named in var.wildcard_prefix_routing.
+resource "aws_cloudfront_function" "prefix_router" {
+  count = local.prefix_routing ? 1 : 0
+
+  name    = "inftrees-web-${var.environment}-prefix-router"
+  comment = "Routes each hostname under ${var.domain_name} to its own folder in the ${var.environment} bucket."
+  runtime = "cloudfront-js-2.0"
+  publish = true
+
+  code = templatefile("${path.module}/prefix-router.js.tftpl", {
+    domain_name    = var.domain_name
+    default_prefix = var.wildcard_prefix_routing
+  })
+}
+
 resource "aws_cloudfront_distribution" "web" {
   enabled             = true
   is_ipv6_enabled     = true
@@ -170,6 +201,15 @@ resource "aws_cloudfront_distribution" "web" {
     cached_methods         = ["GET", "HEAD"]
     compress               = true
     cache_policy_id        = data.aws_cloudfront_cache_policy.caching_optimized.id
+
+    dynamic "function_association" {
+      for_each = aws_cloudfront_function.prefix_router
+
+      content {
+        event_type   = "viewer-request"
+        function_arn = function_association.value.arn
+      }
+    }
   }
 
   restrictions {

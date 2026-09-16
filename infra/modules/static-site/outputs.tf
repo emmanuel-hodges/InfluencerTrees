@@ -17,3 +17,13 @@ output "site_url" {
   description = "Where the site is served."
   value       = "https://${var.domain_name}"
 }
+
+output "domain_name" {
+  description = "Primary hostname. With prefix routing, <prefix>.<domain_name> serves the folder <prefix>."
+  value       = var.domain_name
+}
+
+output "default_prefix" {
+  description = "Folder served on the bare domain when prefix routing is on; null otherwise."
+  value       = var.wildcard_prefix_routing
+}

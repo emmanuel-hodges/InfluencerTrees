@@ -1,23 +1,30 @@
-# Build once without credentials, then deploy that same artifact to beta and,
-# if that succeeds, to prod. Every real step is a script under scripts/ that
-# runs the same on a laptop.
-name: Deploy
+# Per-branch previews. Every update to a pull request builds the site without
+# credentials and syncs it to its own folder in the beta bucket, served at
+# pr-<n>.preview.influencertrees.com. Closing the PR removes the folder.
+#
+# No Terraform apply happens here: previews only write files into
+# infrastructure that the main deploy owns. Pull requests from forks get no
+# preview, because GitHub withholds the OIDC token from them.
+name: Preview
 
 on:
-  push:
-    branches: [main]
-  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
 
 permissions: {}
 
-# One deploy at a time; a second push waits rather than racing the first.
+# One run per PR; a newer push supersedes an in-flight deploy of the same PR.
 concurrency:
-  group: deploy
-  cancel-in-progress: false
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  FOLDER: pr-${{ github.event.pull_request.number }}
 
 jobs:
   build:
     name: Build (no credentials)
+    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -41,23 +48,21 @@ jobs:
           path: dist/web
           if-no-files-found: error
 
-  # Beta gets the artifact first. Its folder is the beta stage at
-  # preview.influencertrees.com; a failure here stops prod from running.
-  deploy-beta:
-    name: Deploy beta
+  deploy:
+    name: Deploy preview
     needs: build
+    if: github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
-      id-token: write # mint the OIDC token the deploy role trusts
+      id-token: write # mint the OIDC token the beta deploy role trusts
       contents: read
+      pull-requests: write # post the URL back on the PR
     env:
       AWS_REGION: us-east-1
       TF_IN_AUTOMATION: "1"
       TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET_BETA }}
       TF_VAR_account_id: ${{ vars.AWS_ACCOUNT_ID_BETA }}
     steps:
-      # Source only — infra/ and scripts/. No dependency install happens in
-      # this job; the site was built above and arrives as an artifact.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -70,21 +75,29 @@ jobs:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN_BETA }}
           aws-region: us-east-1
 
-      # A tool download from HashiCorp's release server, not a package install.
+      # Needed only to read the bucket and distribution IDs from state.
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           terraform_version: "1.16.x"
           terraform_wrapper: false
 
-      - name: Apply infrastructure
-        run: scripts/deploy-infra.sh beta
-
       - name: Deploy web
-        run: scripts/deploy-web.sh beta beta
+        id: deploy
+        run: scripts/deploy-web.sh beta "$FOLDER"
 
-  deploy-prod:
-    name: Deploy prod
-    needs: [build, deploy-beta]
+      - name: Comment the URL on the PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          URL: ${{ steps.deploy.outputs.url }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          gh pr comment "${{ github.event.pull_request.number }}" \
+            --edit-last --create-if-none \
+            --body "Preview: $URL (build \`${SHA::7}\`). Removed when this PR closes."
+
+  remove:
+    name: Remove preview
+    if: github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -92,19 +105,14 @@ jobs:
     env:
       AWS_REGION: us-east-1
       TF_IN_AUTOMATION: "1"
-      TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET_PROD }}
-      TF_VAR_account_id: ${{ vars.AWS_ACCOUNT_ID_PROD }}
+      TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET_BETA }}
+      TF_VAR_account_id: ${{ vars.AWS_ACCOUNT_ID_BETA }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: web
-          path: dist/web
-
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
-          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN_PROD }}
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN_BETA }}
           aws-region: us-east-1
 
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
@@ -112,8 +120,5 @@ jobs:
           terraform_version: "1.16.x"
           terraform_wrapper: false
 
-      - name: Apply infrastructure
-        run: scripts/deploy-infra.sh prod
-
-      - name: Deploy web
-        run: scripts/deploy-web.sh prod
+      - name: Remove web
+        run: scripts/remove-web.sh beta "$FOLDER"

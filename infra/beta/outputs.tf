@@ -4,3 +4,8 @@ output "cloudfront_domain_name" { value = module.site.cloudfront_domain_name }
 output "site_url" { value = module.site.site_url }
 output "domain_name" { value = module.site.domain_name }
 output "default_prefix" { value = module.site.default_prefix }
+
+output "preview_zone_name_servers" {
+  description = "Paste into infra/prod/delegations.tf so the apex zone delegates the subtree here."
+  value       = aws_route53_zone.preview.name_servers
+}

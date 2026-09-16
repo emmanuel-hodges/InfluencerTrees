@@ -4,8 +4,10 @@ Conventions and decisions for this repo. Applies wherever you're working: Mac
 terminal, VS Code, or Codespaces. Read before making changes.
 
 **Status:** bootstrap applied in both workload accounts (2026-09-16). A push
-to `main` builds `web/` and deploys it to https://influencertrees.com through
-`.github/workflows/deploy.yml`. Beta and per-branch previews are not wired yet.
+to `main` builds `web/` once and deploys it to https://preview.influencertrees.com
+(beta) and then https://influencertrees.com (prod) through
+`.github/workflows/deploy.yml`. Every pull request gets its own preview at
+`pr-<n>.preview.influencertrees.com` through `preview.yml`, removed on close.
 
 This file is the short form — what was decided and what to follow. The longer
 argument lives in [`docs/design/accounts-and-iac.md`](docs/design/accounts-and-iac.md).
@@ -109,12 +111,16 @@ Registered **from inside `inftrees-iad-tf-prod`** — moving a domain between AW
 requires an AWS Support case. Never register it in the management account.
 
 ```
-yourdomain.com            Route 53 hosted zone in inftrees-iad-tf-prod
-  preview.yourdomain.com  delegated to a hosted zone in inftrees-iad-tf-beta
+influencertrees.com               Route 53 hosted zone in inftrees-iad-tf-prod
+  preview.influencertrees.com     delegated (one NS record) to a zone in inftrees-iad-tf-beta
+    pr-<n>.preview.…              per-branch previews, a folder each in one bucket
 ```
 
-Subdomains are free, which is what makes per-branch previews practical. Note the
-apex cannot be a CNAME — use a Route 53 **alias** record to point it at CloudFront.
+Beta never holds credentials for the apex zone; everything it needs lands in
+the delegated zone. One beta distribution serves every name under it — a
+CloudFront function maps the hostname to a bucket folder, so a new preview is
+a sync, not a Terraform apply. See `infra/beta/README.md`. Note the apex cannot
+be a CNAME — use a Route 53 **alias** record to point it at CloudFront.
 
 ---
 
@@ -277,16 +283,21 @@ Codespaces, and in CI. The workflow only sets up credentials and calls them.
 |---|---|---|
 | `scripts/check-infra.sh` | none | `terraform fmt -check` and `validate` on every root |
 | `scripts/build-web.sh` | none | Builds `web/` into `dist/web`, stamped with the commit |
-| `PLAN_ONLY=1 scripts/deploy-infra.sh prod` | AWS | Plans the main infrastructure without changing anything |
-| `scripts/deploy-infra.sh prod` | AWS | Applies it. CI runs this on every push to `main` |
-| `scripts/deploy-web.sh prod` | AWS | Syncs `dist/web` to the site bucket and invalidates CloudFront |
+| `scripts/init-infra.sh <env>` | AWS | `terraform init` against the environment's state bucket; the others call it |
+| `PLAN_ONLY=1 scripts/deploy-infra.sh <env>` | AWS | Plans the main infrastructure without changing anything |
+| `scripts/deploy-infra.sh <env>` | AWS | Applies it. CI runs this for beta, then prod, on every push to `main` |
+| `scripts/deploy-web.sh prod` | AWS | Syncs `dist/web` to the prod bucket root and invalidates CloudFront |
+| `scripts/deploy-web.sh beta <folder>` | AWS | Same, into one folder of the beta bucket: `beta` is the stage, `pr-<n>` a preview |
+| `scripts/remove-web.sh beta pr-<n>` | AWS | Deletes a preview folder. Refuses `beta` |
 
-Laptop runs need `AWS_PROFILE=iad-tf-prod` exported plus two gitignored files
-in `infra/prod/`: `backend.hcl` (state bucket name) and `terraform.tfvars`
-(account ID). Both have `.example` siblings. CI gets the same values from the
-repository variables `TF_STATE_BUCKET_PROD`, `AWS_ACCOUNT_ID_PROD` and
-`AWS_DEPLOY_ROLE_ARN_PROD`, kept there rather than in YAML because the repo is
-public and each contains the account ID.
+`<env>` is `beta` or `prod`. Laptop runs need `AWS_PROFILE=iad-tf-<env>`
+exported plus two gitignored files in `infra/<env>/`: `backend.hcl` (state
+bucket name) and `terraform.tfvars` (account ID). Both have `.example`
+siblings. CI gets the same values from the repository variables
+`TF_STATE_BUCKET_<ENV>`, `AWS_ACCOUNT_ID_<ENV>` and `AWS_DEPLOY_ROLE_ARN_<ENV>`,
+kept there rather than in YAML because the repo is public and each contains
+the account ID. Pull-request previews never run `terraform apply`; they only
+write files into infrastructure the `main` deploy owns.
 
 Bootstrap (`infra/bootstrap/<env>`) is separate and is only ever run by hand —
 see `infra/bootstrap/README.md`.

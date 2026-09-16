@@ -18,3 +18,15 @@ variable "hosted_zone_id" {
   description = "Route 53 zone that holds every name above. Certificate validation and alias records go here."
   type        = string
 }
+
+variable "wildcard_prefix_routing" {
+  description = <<-EOT
+    Enables one distribution serving many hostnames. When set, *.<domain_name>
+    is added to the certificate, the aliases and DNS; each request is routed
+    to the bucket folder named after its first hostname label; and requests to
+    the bare domain go to the folder named here, e.g. "beta". Leave null for a
+    single-site environment that syncs to the bucket root.
+  EOT
+  type        = string
+  default     = null
+}

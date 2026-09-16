@@ -9,7 +9,7 @@ cd "$(dirname "$0")/.."
 
 terraform fmt -check -recursive -diff infra
 
-for root in infra/bootstrap/beta infra/bootstrap/prod infra/prod; do
+for root in infra/bootstrap/beta infra/bootstrap/prod infra/beta infra/prod; do
   echo "== $root"
   scratch="$(mktemp -d)"
   (
