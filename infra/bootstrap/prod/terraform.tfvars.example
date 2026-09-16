@@ -3,7 +3,7 @@
 
 aws_profile       = "iad-tf-prod"
 account_id        = "000000000000"
-github_repo       = "emmanuel-hodges/InfluencerTrees"
+github_repo       = "emmanuel-hodges@329751712/InfluencerTrees@1372227066"
 state_bucket_name = "inftrees-tfstate-prod-000000000000"
 
 # Production accepts exactly one branch. Do not widen this.

@@ -66,8 +66,8 @@ The trust policy is the whole point, so it is worth reading rather than
 trusting:
 
 ```
-repo:emmanuel-hodges/InfluencerTrees:ref:refs/heads/main   prod
-repo:emmanuel-hodges/InfluencerTrees:*                     beta
+repo:emmanuel-hodges@329751712/InfluencerTrees@1372227066:ref:refs/heads/main   prod
+repo:emmanuel-hodges@329751712/InfluencerTrees@1372227066:*                     beta
 ```
 
 Two conditions matter, and both are the documented ways people get this wrong:
@@ -77,6 +77,24 @@ Two conditions matter, and both are the documented ways people get this wrong:
 - **The repository portion is literal.** `repo:OWNER/*` would let any repository
   in the account assume the role. Only the ref varies, and only for beta —
   production accepts one branch.
+
+The `@number` suffixes are GitHub's **immutable subject claim**: the owner's
+and the repository's numeric IDs. GitHub mints this form by default for new
+repositories, so a trust policy written for plain `owner/repo` never matches
+and every run fails with `Not authorized to perform
+sts:AssumeRoleWithWebIdentity`. The IDs are a stronger pin than the name — a
+rename does not break the policy, and deleting the repository and re-creating
+it under the same name does not inherit its access. Read the exact prefix from
+GitHub instead of composing it:
+
+```bash
+gh api repos/OWNER/REPO/actions/oidc/customization/sub --jq .sub_claim_prefix
+```
+
+When a run is refused, CloudTrail in the target account records the subject the
+token actually carried, under `userIdentity.principalId` of the failed
+`AssumeRoleWithWebIdentity` event. Compare it with the policy character by
+character.
 
 The role also carries explicit denies on privilege escalation: it cannot create
 IAM users or access keys, touch Organizations or Identity Center, strip or swap

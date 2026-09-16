@@ -3,7 +3,7 @@
 
 aws_profile       = "iad-tf-beta"
 account_id        = "000000000000"
-github_repo       = "emmanuel-hodges/InfluencerTrees"
+github_repo       = "emmanuel-hodges@329751712/InfluencerTrees@1372227066"
 state_bucket_name = "inftrees-tfstate-beta-000000000000"
 
 # Any branch or pull request may deploy to beta. This is what makes per-branch

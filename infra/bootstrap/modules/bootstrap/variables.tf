@@ -5,14 +5,24 @@ variable "environment" {
 
 variable "github_repo" {
   description = <<-EOT
-    GitHub repository as owner/repo. Pinned EXACTLY in the OIDC trust policy,
-    capitalisation included — the sub claim GitHub mints is case-sensitive.
+    The repository portion of the OIDC sub claim, pinned EXACTLY in the trust
+    policy. Case-sensitive.
+
+    Repositories with GitHub's immutable subject claim enabled (the default for
+    new repositories) mint "owner@OWNER_ID/repo@REPO_ID", which survives
+    renames and cannot be reclaimed by re-creating a deleted repository. Older
+    repositories mint plain "owner/repo". Read the exact value rather than
+    guessing:
+
+      gh api repos/OWNER/REPO/actions/oidc/customization/sub --jq .sub_claim_prefix
+
+    and drop the leading "repo:".
   EOT
   type        = string
 
   validation {
-    condition     = can(regex("^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$", var.github_repo))
-    error_message = "github_repo must be in owner/repo form, with no protocol or .git suffix."
+    condition     = can(regex("^[A-Za-z0-9._-]+(@[0-9]+)?/[A-Za-z0-9._-]+(@[0-9]+)?$", var.github_repo))
+    error_message = "github_repo must be owner/repo or owner@ID/repo@ID, with no protocol, .git suffix, or leading repo:."
   }
 }
 
