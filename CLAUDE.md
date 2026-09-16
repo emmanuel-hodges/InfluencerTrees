@@ -10,7 +10,7 @@ configured. The domain and the bootstrap are still to come.
 This file is the short form — what was decided and what to follow. The longer
 argument lives in [`docs/design/accounts-and-iac.md`](docs/design/accounts-and-iac.md).
 
-_Last updated: 2026-09-15_
+_Last updated: 2026-09-16_
 
 ---
 
@@ -160,6 +160,10 @@ Do not assume these. Raise them before writing code that depends on one.
   condition like `repo:OWNER/*` lets any repo assume the role; a wildcard on the
   ref lets any branch deploy to production. Prod must require `refs/heads/main`.
 - No `AdministratorAccess` on CI roles.
+- **Roles created by CI live under `/inftrees/` and carry the CI permissions
+  boundary.** The deploy role cannot create a role without it. Main
+  infrastructure must set `path` and `permissions_boundary` on every role — see
+  `infra/bootstrap/README.md`.
 
 ### Secrets
 
@@ -185,6 +189,11 @@ Do not assume these. Raise them before writing code that depends on one.
 - **Never commit straight to `main`** — branch, then `merge --no-ff`, even
   before a remote exists.
 - PRs get a preview deployment; the URL is posted back as a PR comment.
+
+> **Temporary, until 2026-09-20 inclusive:** commit directly to `main`. The
+> branch-and-merge rule above is suspended while the bootstrap and first
+> pipeline land. **Pushing to the remote still requires asking first.** From
+> 2026-09-21 the rule above applies again without further notice.
 
 ### Commit messages
 
