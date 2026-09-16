@@ -29,14 +29,6 @@ build/
 *.tsbuildinfo
 npm-debug.log*
 
-# --- Local-only notes ---
-# Conventions, account structure and settled decisions live in the committed
-# CLAUDE.md so they travel with the code. Design rationale and machine-specific
-# notes stay local.
-.ai_steering
-ai_steering
-docs/design/.initial_design_decisions
-
 # --- macOS / editors ---
 .DS_Store
 .vscode/*

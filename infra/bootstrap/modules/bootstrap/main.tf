@@ -6,10 +6,6 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
-    tls = {
-      source  = "hashicorp/tls"
-      version = "~> 4.0"
-    }
   }
 }
 
@@ -119,26 +115,19 @@ resource "aws_s3_bucket_policy" "state" {
 # than checking a stored secret.
 # ---------------------------------------------------------------------------
 
-data "tls_certificate" "github" {
-  url = "https://token.actions.githubusercontent.com/.well-known/openid-configuration"
-}
-
 resource "aws_iam_openid_connect_provider" "github" {
   url            = "https://token.actions.githubusercontent.com"
   client_id_list = ["sts.amazonaws.com"]
 
-  # AWS no longer relies on this thumbprint for GitHub's issuer — it validates
-  # against a trusted CA — but the API still requires the field. Read from the
-  # live certificate so there is nothing stale to hardcode.
-  thumbprint_list = [data.tls_certificate.github.certificates[0].sha1_fingerprint]
+  # AWS does not use this value for GitHub's issuer — since mid-2023 it
+  # validates the token against a trusted CA — but the API still requires the
+  # field. A fixed value is deliberate: reading it from the live certificate
+  # would fetch GitHub on every plan and drift whenever the cert rotates, for
+  # a field nothing checks. This is GitHub's published thumbprint at the time
+  # of writing; it going stale has no effect.
+  thumbprint_list = ["1c58a3a8518e8759bf075b76b750d4f2df264fcd"]
 
   tags = local.tags
-
-  # GitHub rotates its certificate; AWS does not use the value for this issuer.
-  # Without this, every rotation produces a perpetual diff.
-  lifecycle {
-    ignore_changes = [thumbprint_list]
-  }
 }
 
 # ---------------------------------------------------------------------------
