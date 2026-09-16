@@ -85,15 +85,17 @@ jobs:
         id: deploy
         run: scripts/deploy-web.sh beta "$FOLDER"
 
+      # The build stamp is the merge commit CI checked out, not the branch
+      # head, so it is read from the artifact rather than the event payload.
       - name: Comment the URL on the PR
         env:
           GH_TOKEN: ${{ github.token }}
           URL: ${{ steps.deploy.outputs.url }}
-          SHA: ${{ github.event.pull_request.head.sha }}
         run: |
+          build="$(cat dist/web/version.txt)"
           gh pr comment "${{ github.event.pull_request.number }}" \
             --edit-last --create-if-none \
-            --body "Preview: $URL (build \`${SHA::7}\`). Removed when this PR closes."
+            --body "Preview: $URL (build \`$build\`, the merge of this PR into main). Removed when this PR closes."
 
   remove:
     name: Remove preview
