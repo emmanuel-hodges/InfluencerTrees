@@ -1,0 +1,11 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is gitignored —
+# account IDs stay out of the repo.
+
+aws_profile       = "iad-tf-beta"
+account_id        = "000000000000"
+github_repo       = "emmanuel-hodges/InfluencerTrees"
+state_bucket_name = "inftrees-tfstate-beta-000000000000"
+
+# Any branch or pull request may deploy to beta. This is what makes per-branch
+# preview deploys work. The repository portion stays exact regardless.
+allowed_subjects = ["*"]

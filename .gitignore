@@ -1,0 +1,45 @@
+# --- Secrets and account-specific values ---
+# Account IDs and per-environment values live here, never in the repo.
+*.tfvars
+*.tfvars.json
+!*.example.tfvars
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# --- Terraform ---
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+override.tf
+override.tf.json
+# NOTE: .terraform.lock.hcl IS committed on purpose — it pins provider versions.
+
+# --- CDK ---
+cdk.out/
+.cdk.staging/
+
+# --- Node ---
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+npm-debug.log*
+
+# --- Local-only notes ---
+# Conventions, account structure and settled decisions live in the committed
+# CLAUDE.md so they travel with the code. Design rationale and machine-specific
+# notes stay local.
+.ai_steering
+ai_steering
+docs/design/.initial_design_decisions
+
+# --- macOS / editors ---
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
