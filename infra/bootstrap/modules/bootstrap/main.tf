@@ -22,6 +22,12 @@ locals {
   # create a dependency cycle: the role's policy cannot reference the role.
   role_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${local.role_name}"
 
+  # Every role the pipeline creates for the application lives under this path
+  # and carries the permissions boundary below. The main infrastructure must
+  # honour both — see outputs and README.
+  app_role_path        = "/inftrees/"
+  app_role_arn_pattern = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/inftrees/*"
+
   tags = {
     Project     = "InfluencerTrees"
     Environment = var.environment
@@ -127,6 +133,12 @@ resource "aws_iam_openid_connect_provider" "github" {
   thumbprint_list = [data.tls_certificate.github.certificates[0].sha1_fingerprint]
 
   tags = local.tags
+
+  # GitHub rotates its certificate; AWS does not use the value for this issuer.
+  # Without this, every rotation produces a perpetual diff.
+  lifecycle {
+    ignore_changes = [thumbprint_list]
+  }
 }
 
 # ---------------------------------------------------------------------------
@@ -135,9 +147,11 @@ resource "aws_iam_openid_connect_provider" "github" {
 
 data "aws_iam_policy_document" "deploy_trust" {
   statement {
-    sid     = "GitHubActionsOIDC"
-    effect  = "Allow"
-    actions = ["sts:AssumeRoleWithWebIdentity"]
+    sid    = "GitHubActionsOIDC"
+    effect = "Allow"
+    # configure-aws-credentials calls TagSession by default; without it the
+    # first pipeline run fails on "not authorized to perform: sts:TagSession".
+    actions = ["sts:AssumeRoleWithWebIdentity", "sts:TagSession"]
 
     principals {
       type        = "Federated"
@@ -170,10 +184,50 @@ resource "aws_iam_role" "deploy" {
   tags                 = local.tags
 }
 
+# ---------------------------------------------------------------------------
+# Permissions boundary for pipeline-created roles
+#
+# The pipeline needs iam:CreateRole to give Lambdas an execution role. On its
+# own that is an escalation path: create a role, attach AdministratorAccess,
+# pass it to a Lambda. A permissions boundary caps what any role the pipeline
+# creates can ever do, regardless of what policies get attached to it. The
+# deploy role may only create roles that carry this boundary.
+# ---------------------------------------------------------------------------
+
+data "aws_iam_policy_document" "boundary" {
+  statement {
+    sid    = "MaximumForPipelineCreatedRoles"
+    effect = "Allow"
+
+    actions = [
+      "s3:*",
+      "cloudfront:*",
+      "lambda:*",
+      "apigateway:*",
+      "logs:*",
+      "cloudwatch:*",
+      "xray:*",
+      "ssm:GetParameter",
+      "ssm:GetParameters",
+      "ssm:GetParametersByPath",
+      "secretsmanager:GetSecretValue",
+    ]
+
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_policy" "boundary" {
+  name        = "inftrees-ci-boundary-${var.environment}"
+  description = "Ceiling for every IAM role created by the ${var.environment} deploy pipeline."
+  policy      = data.aws_iam_policy_document.boundary.json
+  tags        = local.tags
+}
+
 data "aws_iam_policy_document" "deploy_permissions" {
-  # Deliberately broad for the services the hello-world needs. The account
-  # boundary is the primary control; this is the secondary one. Tighten once
-  # the real resource set is known — see README.md.
+  # Service-level wildcards, deliberately: the resource set does not exist yet.
+  # The account boundary is the primary control. Tighten to ARNs once the real
+  # resources are known.
   statement {
     sid    = "ApplicationInfrastructure"
     effect = "Allow"
@@ -187,29 +241,89 @@ data "aws_iam_policy_document" "deploy_permissions" {
       "apigateway:*",
       "logs:*",
       "cloudwatch:*",
+      "xray:*",
       "ssm:GetParameter",
       "ssm:GetParameters",
+      "ssm:GetParametersByPath",
       "secretsmanager:GetSecretValue",
-      "iam:GetRole",
-      "iam:CreateRole",
-      "iam:DeleteRole",
-      "iam:PassRole",
-      "iam:AttachRolePolicy",
-      "iam:DetachRolePolicy",
-      "iam:PutRolePolicy",
-      "iam:DeleteRolePolicy",
-      "iam:GetRolePolicy",
-      "iam:ListRolePolicies",
-      "iam:ListAttachedRolePolicies",
-      "iam:TagRole",
-      "iam:UntagRole",
     ]
 
     resources = ["*"]
   }
 
-  # A compromised pipeline must not be able to widen its own access, mint
-  # long-lived credentials, or reach organization-level controls.
+  # Reads are harmless and Terraform needs them to refresh state.
+  statement {
+    sid    = "ReadIam"
+    effect = "Allow"
+
+    actions = [
+      "iam:GetRole",
+      "iam:GetRolePolicy",
+      "iam:ListRolePolicies",
+      "iam:ListAttachedRolePolicies",
+      "iam:ListInstanceProfilesForRole",
+      "iam:GetPolicy",
+      "iam:GetPolicyVersion",
+      "iam:ListPolicyVersions",
+    ]
+
+    resources = ["*"]
+  }
+
+  # The only way the pipeline may create or widen a role: under the app path,
+  # and only if the role carries the boundary. Any attempt without it is denied
+  # by absence — there is no other statement that permits these actions.
+  statement {
+    sid    = "CreateAndWidenAppRolesOnlyWithBoundary"
+    effect = "Allow"
+
+    actions = [
+      "iam:CreateRole",
+      "iam:AttachRolePolicy",
+      "iam:PutRolePolicy",
+    ]
+
+    resources = [local.app_role_arn_pattern]
+
+    condition {
+      test     = "StringEquals"
+      variable = "iam:PermissionsBoundary"
+      values   = [aws_iam_policy.boundary.arn]
+    }
+  }
+
+  # Managing app roles otherwise: narrowing, deleting, tagging, and adjusting
+  # their trust policy (Lambda's service principal, for instance). These cannot
+  # widen anything a boundary-capped role can do.
+  statement {
+    sid    = "ManageAppRoles"
+    effect = "Allow"
+
+    actions = [
+      "iam:DeleteRole",
+      "iam:DetachRolePolicy",
+      "iam:DeleteRolePolicy",
+      "iam:UpdateRole",
+      "iam:UpdateRoleDescription",
+      "iam:UpdateAssumeRolePolicy",
+      "iam:TagRole",
+      "iam:UntagRole",
+    ]
+
+    resources = [local.app_role_arn_pattern]
+  }
+
+  # PassRole is the classic escalation: hand a privileged role to a service you
+  # control. Scoped to the app path, where every role is boundary-capped.
+  statement {
+    sid       = "PassAppRolesOnly"
+    effect    = "Allow"
+    actions   = ["iam:PassRole"]
+    resources = [local.app_role_arn_pattern]
+  }
+
+  # A compromised pipeline must not mint long-lived credentials, strip or swap
+  # a boundary, edit the boundary policy, or reach organization-level controls.
   statement {
     sid    = "DenyPrivilegeEscalation"
     effect = "Deny"
@@ -218,10 +332,14 @@ data "aws_iam_policy_document" "deploy_permissions" {
       "iam:CreateUser",
       "iam:CreateAccessKey",
       "iam:CreateLoginProfile",
-      "iam:UpdateAssumeRolePolicy",
       "iam:CreateOpenIDConnectProvider",
       "iam:DeleteOpenIDConnectProvider",
       "iam:UpdateOpenIDConnectProviderThumbprint",
+      "iam:DeleteRolePermissionsBoundary",
+      "iam:PutRolePermissionsBoundary",
+      "iam:CreatePolicyVersion",
+      "iam:SetDefaultPolicyVersion",
+      "iam:DeletePolicyVersion",
       "organizations:*",
       "account:*",
       "sso:*",
@@ -231,12 +349,17 @@ data "aws_iam_policy_document" "deploy_permissions" {
     resources = ["*"]
   }
 
-  # Nor modify the two things that grant it access in the first place.
+  # Nor touch the three things that define its own access.
   statement {
-    sid       = "DenySelfModification"
-    effect    = "Deny"
-    actions   = ["iam:*"]
-    resources = [local.role_arn, aws_iam_openid_connect_provider.github.arn]
+    sid     = "DenySelfModification"
+    effect  = "Deny"
+    actions = ["iam:*"]
+
+    resources = [
+      local.role_arn,
+      aws_iam_openid_connect_provider.github.arn,
+      aws_iam_policy.boundary.arn,
+    ]
   }
 }
 

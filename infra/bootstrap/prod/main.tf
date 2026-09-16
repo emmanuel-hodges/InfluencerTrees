@@ -29,3 +29,5 @@ output "state_bucket" { value = module.bootstrap.state_bucket }
 output "deploy_role_arn" { value = module.bootstrap.deploy_role_arn }
 output "oidc_provider_arn" { value = module.bootstrap.oidc_provider_arn }
 output "trusted_subjects" { value = module.bootstrap.trusted_subjects }
+output "app_role_path" { value = module.bootstrap.app_role_path }
+output "permissions_boundary_arn" { value = module.bootstrap.permissions_boundary_arn }

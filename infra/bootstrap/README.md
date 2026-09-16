@@ -22,6 +22,7 @@ prerequisite stack and applies only to the sandbox accounts.
 | **S3 state bucket** | Where the *main* infrastructure keeps Terraform state. Versioned, encrypted, public access blocked, non-TLS requests denied. |
 | **GitHub OIDC provider** | Registers `token.actions.githubusercontent.com` as an identity provider AWS will trust. |
 | **Deploy role** | What GitHub Actions assumes. Trust policy pinned to this repository and the refs allowed for that environment. |
+| **Permissions boundary** | A ceiling applied to every role the pipeline creates. Closes the create-a-role-and-attach-admin escalation path. |
 
 ## Why local state
 
@@ -50,7 +51,7 @@ terraform init
 terraform plan
 ```
 
-**Read the plan.** It should create exactly seven resources and modify nothing.
+**Read the plan.** It should create exactly nine resources and modify nothing.
 Then `terraform apply`, and repeat in `prod` with the prod profile.
 
 ### The guard
@@ -78,15 +79,47 @@ Two conditions matter, and both are the documented ways people get this wrong:
   production accepts one branch.
 
 The role also carries explicit denies on privilege escalation: it cannot create
-IAM users or access keys, touch Organizations or Identity Center, or modify its
-own trust policy or the OIDC provider that admits it.
+IAM users or access keys, touch Organizations or Identity Center, strip or swap
+a permissions boundary, or modify its own trust policy, the OIDC provider that
+admits it, or the boundary policy.
+
+## How the escalation path is closed
+
+The pipeline must create IAM roles — Lambdas need execution roles. Unconstrained,
+that is the whole game: create a role, attach `AdministratorAccess`, pass it to
+a Lambda you control.
+
+Three things together prevent it:
+
+1. **`iam:CreateRole`, `AttachRolePolicy` and `PutRolePolicy` are permitted only
+   on roles under `/inftrees/`, and only when the role carries the permissions
+   boundary.** There is no other statement allowing them, so a role without the
+   boundary simply cannot be created.
+2. **The boundary itself** permits the same application services the pipeline
+   has — S3, CloudFront, Lambda, API Gateway, logs — and no IAM. A boundary-capped
+   role cannot exceed that regardless of what is attached to it.
+3. **`iam:PassRole` is scoped to `/inftrees/*`**, so the only roles the pipeline
+   can hand to a service are ones it created under the boundary.
+
+The deploy role is explicitly denied `DeleteRolePermissionsBoundary`,
+`PutRolePermissionsBoundary`, and every edit to the boundary policy, so it cannot
+remove the cap after the fact.
+
+### The contract for the main infrastructure
+
+Every `aws_iam_role` it creates must set both:
+
+```hcl
+path                 = "/inftrees/"
+permissions_boundary = <permissions_boundary_arn output of this bootstrap>
+```
+
+Miss either and the apply fails with `AccessDenied` on `CreateRole`. That is the
+guard working, not a bug.
 
 ## Known looseness
 
 `ApplicationInfrastructure` grants service-level wildcards (`s3:*`,
 `cloudfront:*`, `lambda:*`) because the resource set is not known yet. The
 account boundary is the primary control; this policy is the secondary one.
-
-Tighten it to specific ARNs once the hello-world is deployed and the real
-resource names exist. Until then, treat the blast radius as "everything in this
-one account", which is what the account structure was chosen to contain.
+Tighten to specific ARNs once the hello-world exists and real names are known.

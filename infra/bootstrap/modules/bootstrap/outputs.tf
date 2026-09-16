@@ -22,3 +22,13 @@ output "trusted_subjects" {
   description = "Exact sub claims permitted to assume the deploy role."
   value       = [for s in var.allowed_subjects : "repo:${var.github_repo}:${s}"]
 }
+
+output "app_role_path" {
+  description = "IAM path every pipeline-created role must use."
+  value       = local.app_role_path
+}
+
+output "permissions_boundary_arn" {
+  description = "Boundary every pipeline-created role must carry. The deploy role cannot create a role without it."
+  value       = aws_iam_policy.boundary.arn
+}
