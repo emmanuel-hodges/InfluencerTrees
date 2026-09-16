@@ -2,7 +2,7 @@
 # Account IDs and per-environment values live here, never in the repo.
 *.tfvars
 *.tfvars.json
-!*.example.tfvars
+backend.hcl
 .env
 .env.*
 !.env.example

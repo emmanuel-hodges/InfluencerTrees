@@ -3,9 +3,9 @@
 Conventions and decisions for this repo. Applies wherever you're working: Mac
 terminal, VS Code, or Codespaces. Read before making changes.
 
-**Status:** pre-scaffold. No application code, infrastructure, or CI yet. The
-five AWS accounts exist and are placed in their OUs; IAM Identity Center is
-configured. The domain and the bootstrap are still to come.
+**Status:** bootstrap applied in both workload accounts (2026-09-16). A push
+to `main` builds `web/` and deploys it to https://influencertrees.com through
+`.github/workflows/deploy.yml`. Beta and per-branch previews are not wired yet.
 
 This file is the short form — what was decided and what to follow. The longer
 argument lives in [`docs/design/accounts-and-iac.md`](docs/design/accounts-and-iac.md).
@@ -270,5 +270,23 @@ long-lived AWS credentials should exist on any machine.
 
 ## Commands
 
-Nothing yet. As scaffolding lands, every operation gets a script in `scripts/`
-that runs identically on the Mac, in Codespaces, and in CI. Document them here.
+Every operation is a script in `scripts/` that runs identically on the Mac, in
+Codespaces, and in CI. The workflow only sets up credentials and calls them.
+
+| Command | Credentials | What it does |
+|---|---|---|
+| `scripts/check-infra.sh` | none | `terraform fmt -check` and `validate` on every root |
+| `scripts/build-web.sh` | none | Builds `web/` into `dist/web`, stamped with the commit |
+| `PLAN_ONLY=1 scripts/deploy-infra.sh prod` | AWS | Plans the main infrastructure without changing anything |
+| `scripts/deploy-infra.sh prod` | AWS | Applies it. CI runs this on every push to `main` |
+| `scripts/deploy-web.sh prod` | AWS | Syncs `dist/web` to the site bucket and invalidates CloudFront |
+
+Laptop runs need `AWS_PROFILE=iad-tf-prod` exported plus two gitignored files
+in `infra/prod/`: `backend.hcl` (state bucket name) and `terraform.tfvars`
+(account ID). Both have `.example` siblings. CI gets the same values from the
+repository variables `TF_STATE_BUCKET_PROD`, `AWS_ACCOUNT_ID_PROD` and
+`AWS_DEPLOY_ROLE_ARN_PROD`, kept there rather than in YAML because the repo is
+public and each contains the account ID.
+
+Bootstrap (`infra/bootstrap/<env>`) is separate and is only ever run by hand —
+see `infra/bootstrap/README.md`.
