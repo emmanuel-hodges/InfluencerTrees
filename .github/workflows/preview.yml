@@ -3,8 +3,10 @@
 # pr-<n>.preview.influencertrees.com. Closing the PR removes the folder.
 #
 # No Terraform apply happens here: previews only write files into
-# infrastructure that the main deploy owns. Pull requests from forks get no
-# preview, because GitHub withholds the OIDC token from them.
+# infrastructure that the main deploy owns, and they call the beta stage's
+# API through the same distribution, so a preview is the branch's site on
+# top of beta's backend and data. Pull requests from forks get no preview,
+# because GitHub withholds the OIDC token from them.
 name: Preview
 
 on:
@@ -31,6 +33,11 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           terraform_version: "1.16.x"
@@ -38,6 +45,14 @@ jobs:
 
       - name: Check infrastructure
         run: scripts/check-infra.sh
+
+      - name: Typecheck and test
+        run: scripts/test.sh
+
+      # The API is built so a pull request proves it still compiles; only the
+      # site is deployed. Previews share the beta stage's API and data.
+      - name: Build API
+        run: scripts/build-api.sh
 
       - name: Build web
         run: scripts/build-web.sh

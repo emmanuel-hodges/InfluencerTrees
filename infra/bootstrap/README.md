@@ -21,8 +21,8 @@ prerequisite stack and applies only to the sandbox accounts.
 |---|---|
 | **S3 state bucket** | Where the *main* infrastructure keeps Terraform state. Versioned, encrypted, public access blocked, non-TLS requests denied. |
 | **GitHub OIDC provider** | Registers `token.actions.githubusercontent.com` as an identity provider AWS will trust. |
-| **Deploy role** | What GitHub Actions assumes. Trust policy pinned to this repository and the refs allowed for that environment. |
-| **Permissions boundary** | A ceiling applied to every role the pipeline creates. Closes the create-a-role-and-attach-admin escalation path. |
+| **Deploy role** | What GitHub Actions assumes. Trust policy pinned to this repository and the refs allowed for that environment. Control plane for the application's services; the data plane is explicitly denied. |
+| **Permissions boundary** | A ceiling applied to every role the pipeline creates. Closes the create-a-role-and-attach-admin escalation path. Lists the data-plane actions the application's own role needs. |
 
 ## Why local state
 
@@ -51,8 +51,11 @@ terraform init
 terraform plan
 ```
 
-**Read the plan.** It should create exactly nine resources and modify nothing.
-Then `terraform apply`, and repeat in `prod` with the prod profile.
+**Read the plan.** On a fresh account it should create exactly nine resources
+and modify nothing. Re-running after the application widening below plans
+two in-place updates — the deploy role's inline policy and the boundary
+policy — and creates or destroys nothing. Then `terraform apply`, and repeat
+in `prod` with the prod profile.
 
 ### The guard
 
@@ -114,8 +117,9 @@ Three things together prevent it:
    boundary.** There is no other statement allowing them, so a role without the
    boundary simply cannot be created.
 2. **The boundary itself** permits the same application services the pipeline
-   has — S3, CloudFront, Lambda, API Gateway, logs — and no IAM. A boundary-capped
-   role cannot exceed that regardless of what is attached to it.
+   has — S3, CloudFront, Lambda, API Gateway, logs — plus the data plane the
+   running code needs (below), and no IAM. A boundary-capped role cannot
+   exceed that regardless of what is attached to it.
 3. **`iam:PassRole` is scoped to `/inftrees/*`**, so the only roles the pipeline
    can hand to a service are ones it created under the boundary.
 
@@ -134,6 +138,30 @@ permissions_boundary = <permissions_boundary_arn output of this bootstrap>
 
 Miss either and the apply fails with `AccessDenied` on `CreateRole`. That is the
 guard working, not a bug.
+
+## The application's services
+
+The MVP added a table, a sending domain and an HTTP API, and the policies
+grew in three places:
+
+1. **`dynamodb:*` and `ses:*` on the deploy role**, control plane only: it
+   creates tables, identities, DKIM settings and configuration sets.
+2. **`iam:CreateServiceLinkedRole`, conditioned to `ops.apigateway.amazonaws.com`.**
+   API Gateway creates its service-linked role the first time an API is made
+   in an account, and the caller needs that one permission. The condition
+   means it cannot create any other role by this route.
+3. **`DenyPipelineDataPlane`.** The beta role is assumable from any branch,
+   so it must never read or write a row, send mail as the domain, or take the
+   account out of the SES sandbox. Every DynamoDB item action, Scan, PartiQL,
+   export and restore, every `ses:Send*` and `ses:PutAccountDetails` are
+   denied outright. The pipeline can build a table and an identity; only
+   running code and humans use them.
+
+The boundary gained the matching data-plane actions — the item-level DynamoDB
+calls without Scan, `DescribeTable`, `ses:SendEmail` and `ses:SendRawEmail` —
+so that the Lambda's own role, which the pipeline creates under the boundary,
+can do exactly that much and no more. The pipeline may grant them; it may not
+use them.
 
 ## Known looseness
 

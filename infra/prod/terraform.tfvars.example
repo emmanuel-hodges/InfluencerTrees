@@ -1,3 +1,7 @@
 # Copy to terraform.tfvars (gitignored). Only needed for laptop runs; CI sets
-# TF_VAR_account_id from a repository variable.
-account_id = "000000000000"
+# TF_VAR_account_id and TF_VAR_founder_email from repository variables.
+account_id    = "000000000000"
+founder_email = "you@example.com"
+
+# api_zip_path is not set here. scripts/deploy-infra.sh exports it as
+# TF_VAR_api_zip_path, pointing at the bundle scripts/build-api.sh produced.

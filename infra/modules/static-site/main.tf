@@ -160,21 +160,33 @@ data "aws_cloudfront_cache_policy" "caching_optimized" {
   name = "Managed-CachingOptimized"
 }
 
-# Prefix routing: one distribution serves many hostnames by rewriting each
-# request's path to a folder named after the first hostname label, before the
-# cache lookup. pr-12.preview.example.com/x becomes /pr-12/x in the bucket.
-# The bare domain maps to the folder named in var.wildcard_prefix_routing.
-resource "aws_cloudfront_function" "prefix_router" {
-  count = local.prefix_routing ? 1 : 0
+data "aws_cloudfront_cache_policy" "caching_disabled" {
+  name = "Managed-CachingDisabled"
+}
 
-  name    = "inftrees-web-${var.environment}-prefix-router"
-  comment = "Routes each hostname under ${var.domain_name} to its own folder in the ${var.environment} bucket."
+data "aws_cloudfront_origin_request_policy" "all_viewer_except_host_header" {
+  name = "Managed-AllViewerExceptHostHeader"
+}
+
+# Viewer-request function on the default behaviour in every environment. It
+# sends client-side routes such as /login to index.html and, with prefix
+# routing on, rewrites each request's path to the folder named after the
+# first hostname label: pr-12.preview.example.com/x becomes /pr-12/x in the
+# bucket, and the bare domain maps to var.wildcard_prefix_routing.
+#
+# Not custom_error_response: that is distribution-wide, so it would turn the
+# API's 401 and 404 JSON into index.html with a 200, and it cannot follow the
+# per-folder layout.
+resource "aws_cloudfront_function" "viewer_request" {
+  name    = "inftrees-web-${var.environment}-viewer-request"
+  comment = local.prefix_routing ? "Client-side routes to index.html; each hostname under ${var.domain_name} to its own folder." : "Client-side routes to index.html."
   runtime = "cloudfront-js-2.0"
   publish = true
 
-  code = templatefile("${path.module}/prefix-router.js.tftpl", {
+  code = templatefile("${path.module}/viewer-request.js.tftpl", {
     domain_name    = var.domain_name
-    default_prefix = var.wildcard_prefix_routing
+    default_prefix = local.prefix_routing ? var.wildcard_prefix_routing : ""
+    prefix_routing = local.prefix_routing
   })
 }
 
@@ -194,6 +206,24 @@ resource "aws_cloudfront_distribution" "web" {
     origin_access_control_id = aws_cloudfront_origin_access_control.web.id
   }
 
+  # The API rides the same distribution so the browser sees one origin: the
+  # session cookie set under /api/* is first-party, and there is no CORS.
+  dynamic "origin" {
+    for_each = var.api_origin_domain_name != null ? [var.api_origin_domain_name] : []
+
+    content {
+      origin_id   = "api"
+      domain_name = origin.value
+
+      custom_origin_config {
+        http_port              = 80
+        https_port             = 443
+        origin_protocol_policy = "https-only"
+        origin_ssl_protocols   = ["TLSv1.2"]
+      }
+    }
+  }
+
   default_cache_behavior {
     target_origin_id       = "s3-web"
     viewer_protocol_policy = "redirect-to-https"
@@ -202,13 +232,30 @@ resource "aws_cloudfront_distribution" "web" {
     compress               = true
     cache_policy_id        = data.aws_cloudfront_cache_policy.caching_optimized.id
 
-    dynamic "function_association" {
-      for_each = aws_cloudfront_function.prefix_router
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.viewer_request.arn
+    }
+  }
 
-      content {
-        event_type   = "viewer-request"
-        function_arn = function_association.value.arn
-      }
+  # Nothing under /api/* is cached. AllViewerExceptHostHeader forwards every
+  # viewer header, cookie and query string — the session cookie and any
+  # Authorization header included — but lets API Gateway see its own hostname,
+  # which it insists on. Behaviours own their function associations, so the
+  # router above never sees /api. https-only rather than a redirect: a
+  # redirected POST would arrive as a GET.
+  dynamic "ordered_cache_behavior" {
+    for_each = var.api_origin_domain_name != null ? ["/api/*"] : []
+
+    content {
+      path_pattern             = ordered_cache_behavior.value
+      target_origin_id         = "api"
+      viewer_protocol_policy   = "https-only"
+      allowed_methods          = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+      cached_methods           = ["GET", "HEAD"]
+      compress                 = true
+      cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
+      origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer_except_host_header.id
     }
   }
 

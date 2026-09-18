@@ -50,7 +50,13 @@ else
   url="https://$domain"
 fi
 
-aws s3 sync "$dist" "$target" --delete --no-progress
+# Vite names everything under assets/ by content hash, so those files can be
+# cached forever; index.html and version.txt must always be fetched fresh or
+# a browser keeps an old shell after a deploy. Two passes, both pruning.
+aws s3 sync "$dist" "$target" --delete --no-progress \
+  --exclude "assets/*" --cache-control "no-cache"
+aws s3 sync "$dist" "$target" --delete --no-progress \
+  --exclude "*" --include "assets/*" --cache-control "public,max-age=31536000,immutable"
 invalidation="$(aws cloudfront create-invalidation --distribution-id "$distribution" \
   --paths "$paths" --query Invalidation.Id --output text)"
 

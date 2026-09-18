@@ -51,9 +51,35 @@ resource "aws_route53_zone" "preview" {
   }
 }
 
+# ---------------------------------------------------------------------------
+# Application
+#
+# Previews share this backend. A pull request's preview is a folder of static
+# files in the site bucket; its /api/* requests go through the same
+# distribution to the same function, table and sending identity as the beta
+# stage. So a preview exercises the API last deployed to beta, not the one
+# on its own branch, and it shares beta's data. inftrees-app-dev is the
+# separate table laptops and Codespaces use over SSO.
+# ---------------------------------------------------------------------------
+
+module "app" {
+  source = "../modules/app"
+
+  environment      = "beta"
+  account_id       = var.account_id
+  domain_name      = var.domain_name
+  hosted_zone_id   = aws_route53_zone.preview.zone_id
+  api_zip_path     = var.api_zip_path
+  founder_email    = var.founder_email
+  public_base_url  = "https://${var.domain_name}"
+  create_dev_table = true
+  dkim_hosted_zone = var.dkim_hosted_zone
+}
+
 # One bucket and one distribution serve every hostname under the domain.
 # preview.influencertrees.com is the beta stage (folder "beta"); anything
 # else, e.g. pr-12.preview.influencertrees.com, is the folder of that name.
+# /api/* on any of them is the application above.
 module "site" {
   source = "../modules/static-site"
 
@@ -61,4 +87,5 @@ module "site" {
   domain_name             = var.domain_name
   hosted_zone_id          = aws_route53_zone.preview.zone_id
   wildcard_prefix_routing = "beta"
+  api_origin_domain_name  = module.app.api_origin_domain_name
 }

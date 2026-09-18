@@ -196,6 +196,22 @@ data "aws_iam_policy_document" "boundary" {
       "logs:*",
       "cloudwatch:*",
       "xray:*",
+      # Data plane for the application: the Lambda role reads and writes
+      # rows in its own table and sends mail as the domain. No Scan, so no
+      # runtime role can dump a table, and no control plane at all.
+      "dynamodb:GetItem",
+      "dynamodb:BatchGetItem",
+      "dynamodb:Query",
+      "dynamodb:PutItem",
+      "dynamodb:UpdateItem",
+      "dynamodb:DeleteItem",
+      "dynamodb:BatchWriteItem",
+      "dynamodb:TransactGetItems",
+      "dynamodb:TransactWriteItems",
+      "dynamodb:ConditionCheckItem",
+      "dynamodb:DescribeTable",
+      "ses:SendEmail",
+      "ses:SendRawEmail",
       "ssm:GetParameter",
       "ssm:GetParameters",
       "ssm:GetParametersByPath",
@@ -226,6 +242,8 @@ data "aws_iam_policy_document" "deploy_permissions" {
       "cloudfront:*",
       "acm:*",
       "route53:*",
+      "dynamodb:*", # control plane only; the data plane is denied below
+      "ses:*",      # identities, DKIM, configuration sets; sending is denied below
       "lambda:*",
       "apigateway:*",
       "logs:*",
@@ -309,6 +327,60 @@ data "aws_iam_policy_document" "deploy_permissions" {
     effect    = "Allow"
     actions   = ["iam:PassRole"]
     resources = [local.app_role_arn_pattern]
+  }
+
+  # API Gateway creates its service-linked role the first time an API is
+  # created in an account, and the caller needs this one permission for that.
+  # Scoped to that service: it cannot create any other role.
+  statement {
+    sid       = "CreateApiGatewayServiceLinkedRole"
+    effect    = "Allow"
+    actions   = ["iam:CreateServiceLinkedRole"]
+    resources = ["arn:aws:iam::*:role/aws-service-role/ops.apigateway.amazonaws.com/*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "iam:AWSServiceName"
+      values   = ["ops.apigateway.amazonaws.com"]
+    }
+  }
+
+  # The beta role is assumable from any branch of the repository. It may
+  # create tables and sending identities, but it must never read or write a
+  # row, send mail as the domain, or take the account out of the SES sandbox.
+  # Those belong to running code and to humans, not to the pipeline.
+  statement {
+    sid    = "DenyPipelineDataPlane"
+    effect = "Deny"
+
+    actions = [
+      "dynamodb:GetItem",
+      "dynamodb:BatchGetItem",
+      "dynamodb:Query",
+      "dynamodb:Scan",
+      "dynamodb:PutItem",
+      "dynamodb:UpdateItem",
+      "dynamodb:DeleteItem",
+      "dynamodb:BatchWriteItem",
+      "dynamodb:TransactGetItems",
+      "dynamodb:TransactWriteItems",
+      "dynamodb:PartiQLSelect",
+      "dynamodb:PartiQLInsert",
+      "dynamodb:PartiQLUpdate",
+      "dynamodb:PartiQLDelete",
+      "dynamodb:ExportTableToPointInTime",
+      "dynamodb:RestoreTableFromBackup",
+      "dynamodb:RestoreTableToPointInTime",
+      "ses:SendEmail",
+      "ses:SendRawEmail",
+      "ses:SendBulkEmail",
+      "ses:SendTemplatedEmail",
+      "ses:SendBulkTemplatedEmail",
+      "ses:SendCustomVerificationEmail",
+      "ses:PutAccountDetails",
+    ]
+
+    resources = ["*"]
   }
 
   # A compromised pipeline must not mint long-lived credentials, strip or swap

@@ -30,3 +30,15 @@ variable "wildcard_prefix_routing" {
   type        = string
   default     = null
 }
+
+variable "api_origin_domain_name" {
+  description = <<-EOT
+    Hostname of the API Gateway endpoint, without scheme, e.g.
+    abc123.execute-api.us-east-1.amazonaws.com. When set, the distribution
+    gains a second origin and proxies every request under /api/* to it,
+    uncached, so the API is same-origin with the site. Leave null for a
+    static-only environment.
+  EOT
+  type        = string
+  default     = null
+}

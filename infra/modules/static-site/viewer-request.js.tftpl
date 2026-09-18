@@ -1,0 +1,55 @@
+// CloudFront Function (viewer-request). Rendered by Terraform; do not edit the
+// deployed copy. Two rewrites, both before the cache lookup so the rewritten
+// path is the cache key:
+//
+// 1. Client-side routes load the app. A path whose last segment has no
+//    extension, such as /convince or /login, is served index.html; anything
+//    with one, such as /assets/app.js or /version.txt, passes through. S3
+//    has no directory index behind an origin access control, so a trailing
+//    slash gets index.html appended.
+//
+// 2. With prefix routing on, the hostname picks the folder in the bucket:
+//
+//      ${domain_name}/about        -> /${default_prefix}/about
+//      pr-12.${domain_name}/about  -> /pr-12/about
+//
+//    Folders never share cached objects, because the folder is in the key.
+//
+// /api/* has its own behaviour with no function attached, so this never sees
+// it; the early return is belt and braces should that association be lost.
+function handler(event) {
+  var request = event.request;
+  var uri = request.uri;
+
+  if (uri.startsWith("/api/")) {
+    return request;
+  }
+
+  var prefix = "";
+  if (${prefix_routing}) {
+    prefix = "${default_prefix}";
+    var host = request.headers.host ? request.headers.host.value : "";
+    if (host !== "${domain_name}") {
+      var label = host.split(".")[0];
+      if (label) {
+        prefix = label;
+      }
+    }
+  }
+
+  if (uri.endsWith("/")) {
+    uri += "index.html";
+  } else {
+    var last = uri.substring(uri.lastIndexOf("/") + 1);
+    if (last.indexOf(".") === -1) {
+      uri = "/index.html";
+    }
+  }
+
+  if (prefix) {
+    uri = "/" + prefix + uri;
+  }
+
+  request.uri = uri;
+  return request;
+}

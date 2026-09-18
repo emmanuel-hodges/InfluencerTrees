@@ -37,3 +37,39 @@ terraform output preview_zone_name_servers
 Copy the four name servers into `infra/prod/delegations.tf`, apply prod with
 `AWS_PROFILE=iad-tf-prod scripts/deploy-infra.sh prod`, then finish beta with
 `scripts/deploy-infra.sh beta`. Every apply after that is CI's.
+
+## The API behind previews
+
+Every preview shares the beta stage's backend. The distribution has a second
+origin for `/api/*` — the beta API Gateway, one Lambda, one table, one
+sending identity — and that behaviour does no prefix routing, so
+`pr-12.preview.influencertrees.com/api/me` and
+`preview.influencertrees.com/api/me` reach the same function and the same
+rows. A preview therefore tests its branch's front end against the API last
+deployed to beta from `main`, and data written from a preview is beta's
+data.
+
+### Email stays in the SES sandbox
+
+Beta is left in the sandbox on purpose: SES delivers only to addresses
+verified in this account, so nothing a branch does can mail a stranger. To
+receive login codes from beta, verify your own address once and click the
+link SES sends:
+
+```bash
+AWS_PROFILE=iad-tf-beta aws sesv2 create-email-identity --email-identity you@example.com
+```
+
+Production access is requested for prod alone, by a human — the deploy role
+is denied `ses:PutAccountDetails`. Whether DKIM has verified, and which
+hosted zone SES expects the records in, comes from
+`AWS_PROFILE=iad-tf-beta-vo scripts/check-ses.sh beta`.
+
+### The development table
+
+`inftrees-app-dev` is a second table in this account, created by the same
+module, for laptops and Codespaces. The API defaults to it when `TABLE_NAME`
+is unset and logs email instead of sending it when `EMAIL_MODE` is unset, so
+local development is `export AWS_PROFILE=iad-tf-beta` and run — no Docker,
+no DynamoDB emulator. No backups and no deletion protection: it holds
+throwaway data.
