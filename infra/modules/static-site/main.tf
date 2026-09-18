@@ -177,8 +177,14 @@ data "aws_cloudfront_origin_request_policy" "all_viewer_except_host_header" {
 # Not custom_error_response: that is distribution-wide, so it would turn the
 # API's 401 and 404 JSON into index.html with a 200, and it cannot follow the
 # per-folder layout.
-resource "aws_cloudfront_function" "viewer_request" {
-  name    = "inftrees-web-${var.environment}-viewer-request"
+#
+# Beta's function predates the SPA fallback and keeps its original name, so
+# the code change is an in-place update. A rename would be a replacement,
+# and CloudFront refuses to delete a function while the distribution still
+# references it, which it does until its own update lands later in the same
+# apply. Prod has no function yet, so it gets the accurate name.
+resource "aws_cloudfront_function" "router" {
+  name    = local.prefix_routing ? "inftrees-web-${var.environment}-prefix-router" : "inftrees-web-${var.environment}-viewer-request"
   comment = local.prefix_routing ? "Client-side routes to index.html; each hostname under ${var.domain_name} to its own folder." : "Client-side routes to index.html."
   runtime = "cloudfront-js-2.0"
   publish = true
@@ -188,6 +194,13 @@ resource "aws_cloudfront_function" "viewer_request" {
     default_prefix = local.prefix_routing ? var.wildcard_prefix_routing : ""
     prefix_routing = local.prefix_routing
   })
+}
+
+# The function used to be conditional and indexed; this carries beta's
+# existing one across to the new address without replacing it.
+moved {
+  from = aws_cloudfront_function.prefix_router[0]
+  to   = aws_cloudfront_function.router
 }
 
 resource "aws_cloudfront_distribution" "web" {
@@ -234,7 +247,7 @@ resource "aws_cloudfront_distribution" "web" {
 
     function_association {
       event_type   = "viewer-request"
-      function_arn = aws_cloudfront_function.viewer_request.arn
+      function_arn = aws_cloudfront_function.router.arn
     }
   }
 

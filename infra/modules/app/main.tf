@@ -401,6 +401,13 @@ resource "aws_apigatewayv2_stage" "default" {
     throttling_burst_limit = 5
     throttling_rate_limit  = 1
   }
+
+  # Per-route settings name a route, so the routes must exist first; without
+  # this the first apply raced them and CreateStage answered NotFound.
+  depends_on = [
+    aws_apigatewayv2_route.default,
+    aws_apigatewayv2_route.request_code,
+  ]
 }
 
 resource "aws_lambda_permission" "apigateway" {
