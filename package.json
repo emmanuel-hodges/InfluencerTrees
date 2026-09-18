@@ -1,0 +1,30 @@
+{
+  "name": "influencertrees",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/shared",
+    "api",
+    "web"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "concurrently -n api,web -c blue,green \"npm run dev -w api\" \"npm run dev -w web\"",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm test --workspaces --if-present",
+    "build": "npm run build -w web"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.3",
+    "concurrently": "^10.0.5",
+    "esbuild": "^0.28.2",
+    "tsx": "^4.23.13",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11"
+  },
+  "overrides": {
+    "vite": "^7.3.6"
+  }
+}
