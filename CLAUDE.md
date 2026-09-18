@@ -8,11 +8,14 @@ to `main` builds `web/` once and deploys it to https://preview.influencertrees.c
 (beta) and then https://influencertrees.com (prod) through
 `.github/workflows/deploy.yml`. Every pull request gets its own preview at
 `pr-<n>.preview.influencertrees.com` through `preview.yml`, removed on close.
+The one feature branch named in `deploy.yml` (`mvp`) deploys the beta stage
+only; see *Git* below.
 
 This file is the short form — what was decided and what to follow. The longer
-argument lives in [`docs/design/accounts-and-iac.md`](docs/design/accounts-and-iac.md).
+argument lives in [`docs/design/accounts-and-iac.md`](docs/design/accounts-and-iac.md)
+and, for the backend and sign-in, [`docs/design/backend-and-auth.md`](docs/design/backend-and-auth.md).
 
-_Last updated: 2026-09-16_
+_Last updated: 2026-09-18_
 
 ---
 
@@ -124,14 +127,60 @@ be a CNAME — use a Route 53 **alias** record to point it at CloudFront.
 
 ---
 
+### Backend — serverless, in the workload accounts
+
+Per account: one Node 22 Lambda (Hono router) behind an API Gateway HTTP
+API, one DynamoDB on-demand single table, one SES v2 domain identity. All in
+`infra/modules/app`. The API is exposed same-origin as `/api/*` through a
+second origin on the existing CloudFront distributions, so there is no CORS
+and the session cookie is first-party.
+
+- **Previews share beta's backend.** A `pr-<n>` preview is the branch's site
+  on top of beta's API and data. Backend changes are proven on the beta
+  stage, not in previews. Previews still never run Terraform.
+- **DynamoDB, deliberately.** No VPC, no idle bill, no secret. Every access
+  goes through `api/src/store`; the table has point-in-time recovery and
+  deletion protection, so a wrong apply fails instead of deleting.
+- The `execute-api` hostname is reachable directly. Every route
+  authenticates itself, so nothing relies on CloudFront for security.
+- The bootstrap's deploy role gained `dynamodb:*` and `ses:*` for the
+  control plane and a **deny on the data plane**: the pipeline can create
+  tables and identities but never read a row, send mail, or request SES
+  production access. See `infra/bootstrap/README.md`.
+
+### Sign-in — custom email one-time code, no Cognito
+
+The Lambda owns it: six-digit code, salted hash in DynamoDB, ten-minute
+expiry, five attempts, three sends per fifteen minutes, and the request-code
+route throttled at API Gateway. A correct code issues an opaque session id,
+stored hashed, delivered as an `HttpOnly` `__Host-` cookie **and accepted as
+a bearer token**, so a native shell needs no server change. No signing key
+exists anywhere. Unknown addresses get a neutral answer and no email; only
+intake creates accounts.
+
+Cognito's native email OTP was the runner-up and lost on verified facts: its
+password factor cannot be removed, its code email is only customisable with
+MFA set to optional, and every development login would be a real email.
+
+### Mobile — React SPA now, Capacitor later
+
+The site is a Vite + React single-page app that Capacitor wraps unchanged.
+Recorded as a leaning: nothing needs doing until there is a real app, and
+what had to be decided now is decided (bearer-capable auth, no cookie-only
+assumption, a configurable API base, a mobile-first UI).
+
+### Email
+
+Each account sends as the domain whose zone it owns: beta as
+`preview.influencertrees.com`, prod as `influencertrees.com`, with DKIM in
+Route 53. Every new account is in the **SES sandbox**: only verified
+addresses receive mail. Beta stays there on purpose; prod requests
+production access by hand before inviting anyone real.
+
 ## Decisions still open
 
-Do not assume these. Raise them before writing code that depends on one.
-
-| # | Decision | Notes |
-|---|---|---|
-| 1 | Mobile approach — Capacitor vs Expo/RN vs web-only | Interacts with the auth model; native shells handle cookies poorly |
-| 2 | Backend shape — serverless vs containers vs managed | Previews favour scale-to-zero; the database sub-decision is hardest to reverse |
+None at present. The two that were open, mobile approach and backend shape,
+were settled on 2026-09-18 (above).
 
 ---
 
@@ -179,6 +228,8 @@ Do not assume these. Raise them before writing code that depends on one.
 - Use `::add-mask::` for anything sensitive that must transit a workflow.
 - **AWS account IDs** are not secrets but should stay out of the repo — keep them
   in a gitignored `terraform.tfvars`. Scrubbing git history later is unpleasant.
+- **The founder's email** is personal data, not a secret: the `FOUNDER_EMAIL`
+  repository variable in CI, `founder_email` in `terraform.tfvars` locally.
 
 ### Terraform state (workload accounts only)
 
@@ -195,6 +246,14 @@ Do not assume these. Raise them before writing code that depends on one.
 - **Never commit straight to `main`** — branch, then `merge --no-ff`, even
   before a remote exists.
 - PRs get a preview deployment; the URL is posted back as a PR comment.
+- **Three tiers of branch.** `main` deploys beta then prod. The one branch
+  named in `deploy.yml`'s push trigger (`mvp`) deploys the **beta stage
+  only**: prod is skipped by a job condition and refused by the prod role's
+  trust policy. Every other branch gets a `pr-<n>` preview through a PR.
+- **Leave `main` alone while a stage branch is live.** Beta has one Terraform
+  state; a push to `main` would plan to remove the branch's resources.
+  Deletion protection makes that fail rather than lose data. The merge PR
+  removes the branch from the trigger.
 
 > **Temporary, until 2026-09-20 inclusive:** commit directly to `main`. The
 > branch-and-merge rule above is suspended while the bootstrap and first
@@ -241,14 +300,19 @@ Pushing, opening PRs, and anything outward-facing needs an explicit request.
   must import each one, and an imperfect import destroys and recreates.
 - **Domain registration account** — AWS Support case to move.
 - **Account closure takes 90 days** and ties up the root email. No throwaways.
-- **Auth model** (cookies vs bearer tokens) — pending #1 and #2, but the hardest
-  thing here to change once users exist.
+- **Auth model** — decided: an opaque session accepted as a cookie or a bearer
+  token, and email as the identity key. Both are what a native shell or a
+  later identity provider needs, which is why they were fixed first.
+- **DynamoDB key schema** — `pk`/`sk`/`gsi1` are generic on purpose; a new
+  access pattern is a new item shape, not a new table. Changing the keys
+  themselves means a copy.
 
 ---
 
 ## Local setup
 
-Required tooling: **AWS CLI v2, Terraform 1.10+, Node, `gh`**. On macOS:
+Required tooling: **AWS CLI v2, Terraform 1.10+, Node 22 (`.nvmrc`), `gh`**.
+On macOS:
 
 ```bash
 brew install awscli node gh
@@ -272,6 +336,24 @@ git config --global user.email "you@example.com"
 Then configure SSO access as described under *Human AWS access* above. No
 long-lived AWS credentials should exist on any machine.
 
+The app is an npm workspace: `packages/shared` (schemas and types the API
+and site both use), `api` (Hono, runs in Lambda and under Node), `web`
+(Vite + React). To run it:
+
+```bash
+npm ci
+```
+
+```bash
+cp api/.env.example api/.env.local
+```
+
+Set `FOUNDER_EMAIL` in `api/.env.local`, then `npm run dev` starts the API on
+port 3000 and the site on port 5173, which proxies `/api` to it. With the
+defaults the store is in memory and sign-in codes print in the terminal, so
+no AWS access is needed. Set `STORE=dynamodb` to use the `inftrees-app-dev`
+table in the beta account over your SSO session. Nothing local needs Docker.
+
 ---
 
 ## Commands
@@ -282,7 +364,11 @@ Codespaces, and in CI. The workflow only sets up credentials and calls them.
 | Command | Credentials | What it does |
 |---|---|---|
 | `scripts/check-infra.sh` | none | `terraform fmt -check` and `validate` on every root |
+| `scripts/test.sh` | none | Typechecks and tests every workspace |
+| `scripts/build-api.sh` | none | Bundles the API into `dist/api/api.zip` for Lambda |
 | `scripts/build-web.sh` | none | Builds `web/` into `dist/web`, stamped with the commit |
+| `scripts/smoke.sh <url>` | none | Checks a deployed site answers and its API reports the same build |
+| `scripts/check-ses.sh <env>` | AWS (read) | Reports the SES identity's DKIM status and expected hosted zone |
 | `scripts/init-infra.sh <env>` | AWS | `terraform init` against the environment's state bucket; the others call it |
 | `PLAN_ONLY=1 scripts/deploy-infra.sh <env>` | AWS | Plans the main infrastructure without changing anything |
 | `scripts/deploy-infra.sh <env>` | AWS | Applies it. CI runs this for beta, then prod, on every push to `main` |
@@ -290,9 +376,12 @@ Codespaces, and in CI. The workflow only sets up credentials and calls them.
 | `scripts/deploy-web.sh beta <folder>` | AWS | Same, into one folder of the beta bucket: `beta` is the stage, `pr-<n>` a preview |
 | `scripts/remove-web.sh beta pr-<n>` | AWS | Deletes a preview folder. Refuses `beta` |
 
-`<env>` is `beta` or `prod`. Laptop runs need `AWS_PROFILE=iad-tf-<env>`
-exported plus two gitignored files in `infra/<env>/`: `backend.hcl` (state
-bucket name) and `terraform.tfvars` (account ID). Both have `.example`
+`<env>` is `beta` or `prod`. `deploy-infra.sh` needs `dist/api/api.zip` from
+`build-api.sh` first; it hands the zip to Terraform. Laptop runs need
+`AWS_PROFILE=iad-tf-<env>` exported plus two gitignored files in
+`infra/<env>/`: `backend.hcl` (state bucket name) and `terraform.tfvars`
+(account ID and `founder_email`). CI gets `founder_email` from the
+repository variable `FOUNDER_EMAIL`: personal data, so never in the repo. Both have `.example`
 siblings. CI gets the same values from the repository variables
 `TF_STATE_BUCKET_<ENV>`, `AWS_ACCOUNT_ID_<ENV>` and `AWS_DEPLOY_ROLE_ARN_<ENV>`,
 kept there rather than in YAML because the repo is public and each contains

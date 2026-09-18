@@ -2,7 +2,8 @@
 
 **Status:** Decided — 2026-09-12
 **Settles:** CI host, and the infrastructure-as-code choice
-**Still open:** mobile approach, backend shape
+**Still open:** none — mobile approach and backend shape are settled in
+[`backend-and-auth.md`](backend-and-auth.md) (2026-09-18)
 
 ---
 
@@ -268,9 +269,6 @@ the state bucket applies only to the Terraform side.
 
 ## Still open
 
-| Decision | Notes |
-|---|---|
-| Mobile approach — Capacitor vs Expo/React Native vs web-only | Interacts with the auth model. Native shells handle cookies poorly, so bearer tokens are likely required. |
-| Backend shape — serverless vs containers vs managed | Preview environments favour scale-to-zero. Database choice is the sub-decision that is hardest to reverse. |
-
-Neither blocks account creation or the bootstrap.
+Nothing. The two decisions this document left open, the mobile approach and
+the backend shape, were settled on 2026-09-18 and are argued in
+[`backend-and-auth.md`](backend-and-auth.md).
