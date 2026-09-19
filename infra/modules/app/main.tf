@@ -9,6 +9,8 @@ terraform {
   }
 }
 
+data "aws_region" "current" {}
+
 locals {
   name = "inftrees-api-${var.environment}"
 
@@ -269,17 +271,28 @@ data "aws_iam_policy_document" "api" {
     ]
   }
 
-  # SES checks both ARNs on every send, so mail from any other identity or
-  # outside the configuration set is refused.
+  # SES authorises a send against every identity the message touches: the
+  # sender's, the configuration set, and any recipient address that is itself
+  # a verified identity in this account, which every tester is while the
+  # account is in the SES sandbox. Naming only the domain identity here made
+  # the first real send fail with AccessDenied. So the resource is every
+  # identity in the account, and the From address condition keeps the
+  # sender pinned to our domain.
   statement {
     sid     = "SendAsDomain"
     effect  = "Allow"
     actions = ["ses:SendEmail", "ses:SendRawEmail"]
 
     resources = [
-      aws_sesv2_email_identity.domain.arn,
+      "arn:aws:ses:${data.aws_region.current.name}:${var.account_id}:identity/*",
       aws_sesv2_configuration_set.app.arn,
     ]
+
+    condition {
+      test     = "StringLike"
+      variable = "ses:FromAddress"
+      values   = ["*@${var.domain_name}"]
+    }
   }
 }
 
