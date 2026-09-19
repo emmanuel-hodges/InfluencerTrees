@@ -32,8 +32,8 @@ invitation, the invitee signing in and landing on their Intake 2 of 2.
 | Step | Status |
 |---|---|
 | Re-apply `infra/bootstrap/beta` (two in-place updates) | **Done 2026-09-19.** Output in `bootstrap-beta-apply.log` at the repo root, gitignored |
-| `FOUNDER_EMAIL` repository variable | **Set** by the founder on 2026-09-19 |
-| Verify the founder's address in beta's SES sandbox | **Identity created**; the founder must click the link AWS emailed. Until then no code reaches the inbox |
+| `FOUNDER_EMAIL` repository variable | **Set** by the founder on 2026-09-19, then **changed to a different address** the same evening; the branch was redeployed so the Lambda carries the new value. Only that variable feeds the Lambda, so any later change needs `gh workflow run deploy.yml --ref mvp` |
+| Verify the founder's address in beta's SES sandbox | **Identity created for the new address**, still pending; the founder must click the link AWS emailed. Until then no code reaches the inbox. The identity for the earlier address is also still pending and can be deleted |
 | First beta deploy of the branch | See *Deploy status* below |
 | First real sign-in on preview.influencertrees.com | Pending the two rows above |
 | Before merging to `main`: re-apply `infra/bootstrap/prod` (same two updates), request SES production access in prod, remove `mvp` from `deploy.yml`'s push trigger in the merge PR | Not started |
@@ -53,9 +53,15 @@ which proves the function reaches DynamoDB with the new role.
 - Beta stays in the SES sandbox on purpose: production access off, sending
   enabled, 200 messages a day, verified recipients only.
 - The founder's recipient identity exists but is **not yet verified**; the
-  link in the email from `no-reply-aws@amazon.com` completes it. Until then,
+  link in the email from `no-reply-aws@amazon.com` completes it. If that
+  email is gone (the link lasts 24 hours), delete and recreate the identity
+  with `aws sesv2 delete-email-identity` and `create-email-identity` to get
+  a fresh one. Until then,
   a code request for the founder's address is accepted but SES refuses the
   send, and the API reports nothing (neutral by design).
+- The beta table was still empty when the founder address changed, so no
+  record needed moving: the founder and the first idea are created on the
+  new address's first code request, with that account as originator.
 - The first two runs of the branch failed as expected before the bootstrap
   was re-applied; run one also exposed the two ordering bugs listed under
   *Gotchas*, fixed in commit `f68443c`.
