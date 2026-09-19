@@ -10,7 +10,7 @@ _Updated: 2026-09-19_
 
 ## What exists
 
-Branch `mvp`, pushed to `origin`, five commits ahead of `main`:
+Branch `mvp`, pushed to `origin`, seven commits ahead of `main` (run `git log main..mvp`):
 
 | Area | Where | Notes |
 |---|---|---|
