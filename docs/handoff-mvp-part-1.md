@@ -40,8 +40,25 @@ invitation, the invitee signing in and landing on their Intake 2 of 2.
 
 ## Deploy status
 
-_Filled in at the end of the 2026-09-19 session; see the last section of
-this file._
+**Live on the beta stage since 2026-09-19.** The third deploy run of the
+branch applied cleanly (fifteen resources added), synced the site, and its
+smoke test confirmed https://preview.influencertrees.com serves the branch
+build and its API reports the same commit. A request for a sign-in code for
+an unknown address returned the neutral `{"ok":true}` through CloudFront,
+which proves the function reaches DynamoDB with the new role.
+
+- SES domain identity `preview.influencertrees.com`: DKIM **SUCCESS**,
+  hosted zone `dkim.amazonses.com` (the default; no tfvars change needed),
+  verified for sending.
+- Beta stays in the SES sandbox on purpose: production access off, sending
+  enabled, 200 messages a day, verified recipients only.
+- The founder's recipient identity exists but is **not yet verified**; the
+  link in the email from `no-reply-aws@amazon.com` completes it. Until then,
+  a code request for the founder's address is accepted but SES refuses the
+  send, and the API reports nothing (neutral by design).
+- The first two runs of the branch failed as expected before the bootstrap
+  was re-applied; run one also exposed the two ordering bugs listed under
+  *Gotchas*, fixed in commit `f68443c`.
 
 ## How to resume
 
