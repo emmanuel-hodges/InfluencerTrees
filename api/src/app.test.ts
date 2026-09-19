@@ -4,7 +4,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createApp, OTP_MAX_ATTEMPTS, OTP_MAX_SENDS, OTP_TTL_SECONDS, type App } from './app.js';
 import { loadConfig } from './config.js';
-import { LogMailer } from './email/index.js';
+import { LogMailer, type SendOutcome } from './email/index.js';
 import { MemoryStore } from './store/memory.js';
 
 const FOUNDER = 'Founder@Example.com';
@@ -321,5 +321,63 @@ describe('onboarding, intake and the invitee', () => {
     const body = await json(bad);
     expect(body.error).toBe('invalid_body');
     expect(body.message).toMatch(/codename/);
+  });
+});
+
+describe('invitation delivery', () => {
+  it('reports why an invitation did not go out and leaves resend open until one does', async () => {
+    // The log mailer records every message; this transport answers as told.
+    let outcome: SendOutcome = 'sent';
+    const recorder = mailer;
+    app = createApp({
+      config: loadConfig({ STORE: 'memory', EMAIL_MODE: 'log', FOUNDER_EMAIL: FOUNDER, PUBLIC_BASE_URL: ORIGIN, COOKIE_SECURE: 'false' }),
+      store,
+      mailer: {
+        send: async (mail) => {
+          await recorder.send(mail);
+          return outcome;
+        },
+      },
+      now: () => clock,
+    });
+
+    const founder = await signIn(FOUNDER);
+    const suggest = await json(await get('/api/codename/suggest', founder.cookie));
+    const onboarded = await post(
+      '/api/me/onboarding',
+      { ...suggest, ...person, prefs: { emailSharing: 'tree', phoneSharing: 'convincer', systemEmails: 'none' } },
+      founder.cookie,
+    );
+    expect(onboarded.status).toBe(200);
+
+    // The sandbox refuses the recruit's address: the record is kept, the
+    // reason is reported, and no cooldown starts because nothing was sent.
+    outcome = 'unverified_recipient';
+    const invitee = 'tester@example.com';
+    const identity = await json(await get('/api/codename/suggest', founder.cookie));
+    const intake = await post(`/api/ideas/${IDEA}/intake`, { email: invitee, ...identity, ...person }, founder.cookie);
+    expect(intake.status).toBe(201);
+    expect(await json(intake)).toMatchObject({ emailSent: false, emailFailure: 'unverified_recipient' });
+
+    const me = await json(await get('/api/me', founder.cookie));
+    expect(me.influencers[0]).toMatchObject({ email: invitee, status: 'invited' });
+    const recruitId = me.influencers[0].influencerId as string;
+    const resendPath = `/api/ideas/${IDEA}/influencers/${recruitId}/resend`;
+
+    const refusedAgain = await post(resendPath, {}, founder.cookie);
+    expect(refusedAgain.status).toBe(200);
+    expect(await json(refusedAgain)).toMatchObject({ ok: true, emailSent: false, emailFailure: 'unverified_recipient' });
+
+    outcome = 'failed';
+    expect(await json(await post(resendPath, {}, founder.cookie))).toMatchObject({ emailSent: false, emailFailure: 'send_failed' });
+
+    // Once the address is verified the resend delivers, and only then does
+    // the cooldown apply.
+    outcome = 'sent';
+    const delivered = await post(resendPath, {}, founder.cookie);
+    expect(delivered.status).toBe(200);
+    expect(await json(delivered)).toMatchObject({ emailSent: true, emailFailure: null });
+    expect(recorder.sent.at(-1)!.to).toBe(invitee);
+    expect((await post(resendPath, {}, founder.cookie)).status).toBe(429);
   });
 });

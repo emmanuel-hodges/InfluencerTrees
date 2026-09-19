@@ -53,12 +53,18 @@ data.
 
 Beta is left in the sandbox on purpose: SES delivers only to addresses
 verified in this account, so nothing a branch does can mail a stranger. To
-receive login codes from beta, verify your own address once and click the
-link SES sends:
+receive login codes or invitations from beta, an address has to be verified
+once, the founder's and every tester's alike. The script creates the
+identity, or reports where an existing one stands, and AWS emails the link
+to click:
 
 ```bash
-AWS_PROFILE=iad-tf-beta aws sesv2 create-email-identity --email-identity you@example.com
+AWS_PROFILE=iad-tf-beta scripts/verify-recipient.sh beta you@example.com
 ```
+
+An invitation to an address that is not yet verified is refused by SES. The
+API reports it as `unverified_recipient`, the site tells the convincer, and
+*Resend invitation* delivers once the link has been clicked.
 
 Production access is requested for prod alone, by a human — the deploy role
 is denied `ses:PutAccountDetails`. Whether DKIM has verified, and which

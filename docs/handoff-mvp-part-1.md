@@ -19,10 +19,10 @@ Branch `mvp`, pushed to `origin`, seven commits ahead of `main` (run `git log ma
 | Site | `web/src` | Vite + React 19 + react-router 7: login, Convince, Intake 1 of 2, Welcome (Intake 2 of 2), Profile, objections; DiceBear avatars from a seed |
 | Infrastructure | `infra/modules/app`, `infra/modules/static-site`, `infra/beta`, `infra/prod` | DynamoDB, Lambda, HTTP API, SES identity and DKIM, second CloudFront origin for `/api/*`, viewer-request function with SPA fallback |
 | Bootstrap change | `infra/bootstrap/modules/bootstrap/main.tf` | `dynamodb:*`, `ses:*`, conditioned `iam:CreateServiceLinkedRole`, `DenyPipelineDataPlane`; boundary gains the data-plane actions |
-| Pipeline | `.github/workflows/deploy.yml`, `preview.yml`, `scripts/` | `mvp` deploys the beta stage only; prod gated on `main`; API built in the build job, shipped as a second artifact; `test.sh`, `build-api.sh`, `smoke.sh`, `check-ses.sh` |
+| Pipeline | `.github/workflows/deploy.yml`, `preview.yml`, `scripts/` | `mvp` deploys the beta stage only; prod gated on `main`; API built in the build job, shipped as a second artifact; `test.sh`, `build-api.sh`, `smoke.sh`, `check-ses.sh`, `verify-recipient.sh` |
 | Docs | `CLAUDE.md`, `docs/design/backend-and-auth.md`, `infra/*/README.md` | decisions recorded, open-decisions table closed |
 
-Verified: `scripts/test.sh` passes (19 tests), `scripts/check-infra.sh`
+Verified: `scripts/test.sh` passes (24 tests), `scripts/check-infra.sh`
 passes, and the whole loop was walked in a browser against the local API:
 founder sign-in, Intake 2 of 2, Convince, an intake that sent an
 invitation, the invitee signing in and landing on their Intake 2 of 2.
@@ -33,9 +33,10 @@ invitation, the invitee signing in and landing on their Intake 2 of 2.
 |---|---|
 | Re-apply `infra/bootstrap/beta` (two in-place updates) | **Done 2026-09-19.** Output in `bootstrap-beta-apply.log` at the repo root, gitignored |
 | `FOUNDER_EMAIL` repository variable | **Set** by the founder on 2026-09-19, then **changed to a different address** the same evening; the branch was redeployed so the Lambda carries the new value. Only that variable feeds the Lambda, so any later change needs `gh workflow run deploy.yml --ref mvp` |
-| Verify the founder's address in beta's SES sandbox | **Identity created for the new address**, still pending; the founder must click the link AWS emailed. Until then no code reaches the inbox. The identity for the earlier address is also still pending and can be deleted |
+| Verify the founder's address in beta's SES sandbox | **Done 2026-09-19**; codes arrive. The identity for the earlier address is still pending and can be deleted |
 | First beta deploy of the branch | See *Deploy status* below |
-| First real sign-in on preview.influencertrees.com | Pending the two rows above |
+| First real sign-in on preview.influencertrees.com | **Done 2026-09-19**: the founder signed in, finished Intake 2 of 2, reached Convince, and ran an intake |
+| Verify each beta tester's address before inviting them | **Needed now for the first invitee.** Their address is not a verified identity, so SES refused the invitation and the resend on 2026-09-19. Run `AWS_PROFILE=iad-tf-beta scripts/verify-recipient.sh beta <email>`, they click the link AWS sends, then *Resend invitation* on the Convince page |
 | Before merging to `main`: re-apply `infra/bootstrap/prod` (same two updates), request SES production access in prod, remove `mvp` from `deploy.yml`'s push trigger in the merge PR | Not started |
 
 ## Deploy status
@@ -52,13 +53,12 @@ which proves the function reaches DynamoDB with the new role.
   verified for sending.
 - Beta stays in the SES sandbox on purpose: production access off, sending
   enabled, 200 messages a day, verified recipients only.
-- The founder's recipient identity exists but is **not yet verified**; the
-  link in the email from `no-reply-aws@amazon.com` completes it. If that
-  email is gone (the link lasts 24 hours), delete and recreate the identity
-  with `aws sesv2 delete-email-identity` and `create-email-identity` to get
-  a fresh one. Until then,
-  a code request for the founder's address is accepted but SES refuses the
-  send, and the API reports nothing (neutral by design).
+- The founder's recipient identity is verified. The first invitation went to
+  an unverified tester and SES refused it with `MessageRejected`, as the
+  sandbox must; the record was kept with `lastInviteSentAt` null, so
+  *Resend invitation* has no cooldown to wait out once the address is
+  verified with `scripts/verify-recipient.sh`. An AWS verification link
+  lasts 24 hours; the script says how to get a fresh one.
 - The beta table was still empty when the founder address changed, so no
   record needed moving: the founder and the first idea are created on the
   new address's first code request, with that account as originator.
@@ -115,6 +115,14 @@ value in `infra/beta/terraform.tfvars` as `dkim_hosted_zone` and redeploy.
 
 ## Gotchas learned the hard way
 
+- **SES authorises a send against every identity the message touches**,
+  the recipient included when it is a verified identity in the account,
+  which every sandbox tester is. The first real code was refused with
+  `AccessDeniedException` until the API role's send statement covered
+  `identity/*` under a From-address condition (commit `7223cba`).
+- **`MessageRejected` from SES in beta means the recipient is not verified.**
+  The mailer reports it as `unverified_recipient` and logs SES's message
+  with addresses redacted, so the Lambda log says why on its own.
 - **This Mac runs Node 26 from Homebrew.** CI and Lambda use Node 22
   (`.nvmrc`). Everything works on 26, but keep the target at 22.
 - **One Vite for the tree.** The root `package.json` has

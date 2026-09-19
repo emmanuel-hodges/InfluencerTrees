@@ -5,14 +5,14 @@ import { zValidator } from '@hono/zod-validator';
 import {
   DEFAULT_PREFS, ORIGIN_CONVINCER_ID, intakeBody, normalizeCodename, normalizeEmail, objectionBody, onboardingBody,
   prefsBody, prefsToDisplayPrefIds, profileUpdateBody, requestCodeBody, verifyBody,
-  type ApiError, type HealthResponse, type IdeaSummary, type IntakeResponse, type MeResponse, type Objection,
+  type ApiError, type EmailFailure, type HealthResponse, type IdeaSummary, type IntakeResponse, type MeResponse, type Objection,
   type PersonCard, type Profile, type ResendResponse, type Subscription, type SuggestResponse, type VerifyResponse,
 } from '@inftrees/shared';
 import { Hono, type Context, type MiddlewareHandler } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { originAllowed, type Config } from './config.js';
-import { invitationMail, loginCodeMail, type Mailer } from './email/index.js';
+import { invitationMail, loginCodeMail, type Mailer, type SendOutcome } from './email/index.js';
 import { hashesMatch, newAvatar, newCode, newInfluencerId, newObjectionId, newSalt, newSessionToken, sha256 } from './ids.js';
 import { ensureFounder, freeCodename } from './seed.js';
 import type { IdeaRecord, InfluencerRecord, ObjectionRecord, Store, SubscriptionRecord } from './store/types.js';
@@ -56,6 +56,13 @@ export function createApp(deps: AppDeps) {
       return fail(c, 400, 'invalid_body', `${where}${issue?.message ?? 'Invalid request'}`);
     }
     return undefined;
+  };
+
+  // The transport's verdict, in the contract's words, for the two routes that
+  // tell the convincer whether their invitation went out.
+  const failureOf = (outcome: SendOutcome): EmailFailure | null => {
+    if (outcome === 'sent') return null;
+    return outcome === 'unverified_recipient' ? 'unverified_recipient' : 'send_failed';
   };
 
   const app = new Hono<Env>().basePath('/api');
@@ -434,10 +441,14 @@ export function createApp(deps: AppDeps) {
     if (result === 'codename_taken') return fail(c, 409, 'codename_taken', 'That codename was just taken. Generate a new one.');
 
     const idea = await store.getIdea(ideaId);
-    const emailSent = await mailer.send(invitationMail(influencer.email, me.codename, idea?.name ?? 'the idea', config.publicBaseUrl));
+    const outcome = await mailer.send(invitationMail(influencer.email, me.codename, idea?.name ?? 'the idea', config.publicBaseUrl));
+    const emailSent = outcome === 'sent';
     if (emailSent) await store.putSubscription({ ...sub, lastInviteSentAt: t });
 
-    return c.json<IntakeResponse>({ influencerId: influencer.influencerId, codename: influencer.codename, emailSent }, 201);
+    return c.json<IntakeResponse>(
+      { influencerId: influencer.influencerId, codename: influencer.codename, emailSent, emailFailure: failureOf(outcome) },
+      201,
+    );
   });
 
   authed.post('/ideas/:ideaId/influencers/:influencerId/resend', async (c) => {
@@ -453,9 +464,10 @@ export function createApp(deps: AppDeps) {
       return fail(c, 429, 'rate_limited', 'An invitation was sent recently. Try again in a few minutes.');
     }
     const idea = await store.getIdea(ideaId);
-    const emailSent = await mailer.send(invitationMail(target.email, me.codename, idea?.name ?? 'the idea', config.publicBaseUrl));
+    const outcome = await mailer.send(invitationMail(target.email, me.codename, idea?.name ?? 'the idea', config.publicBaseUrl));
+    const emailSent = outcome === 'sent';
     if (emailSent) await store.putSubscription({ ...sub, lastInviteSentAt: t.toISOString() });
-    return c.json<ResendResponse>({ ok: true, emailSent });
+    return c.json<ResendResponse>({ ok: true, emailSent, emailFailure: failureOf(outcome) });
   });
 
   // --- objections ---------------------------------------------------------

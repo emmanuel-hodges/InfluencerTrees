@@ -227,15 +227,25 @@ export interface SuggestResponse {
   avatarId: string;
 }
 
+/**
+ * Why an email did not go out, when the transport said. `unverified_recipient`
+ * is an account still in the SES sandbox refusing an address that is not a
+ * verified identity there; no retry helps until it is.
+ */
+export type EmailFailure = 'unverified_recipient' | 'send_failed';
+
 export interface IntakeResponse {
   influencerId: string;
   codename: string;
   emailSent: boolean;
+  /** Set when emailSent is false. */
+  emailFailure: EmailFailure | null;
 }
 
 export interface ResendResponse {
   ok: true;
   emailSent: boolean;
+  emailFailure: EmailFailure | null;
 }
 
 export interface HealthResponse {

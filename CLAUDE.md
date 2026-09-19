@@ -15,7 +15,7 @@ This file is the short form — what was decided and what to follow. The longer
 argument lives in [`docs/design/accounts-and-iac.md`](docs/design/accounts-and-iac.md)
 and, for the backend and sign-in, [`docs/design/backend-and-auth.md`](docs/design/backend-and-auth.md).
 
-_Last updated: 2026-09-18_
+_Last updated: 2026-09-19_
 
 ---
 
@@ -176,6 +176,12 @@ Each account sends as the domain whose zone it owns: beta as
 Route 53. Every new account is in the **SES sandbox**: only verified
 addresses receive mail. Beta stays there on purpose; prod requests
 production access by hand before inviting anyone real.
+
+So a beta tester has to be verified before any invitation or code reaches
+them: `AWS_PROFILE=iad-tf-beta scripts/verify-recipient.sh beta <email>`,
+they click the link AWS sends, then the founder uses *Resend invitation*.
+Until then SES refuses the send, the API reports `unverified_recipient`,
+and the site says the address has to be verified.
 
 ## Decisions still open
 
@@ -369,6 +375,7 @@ Codespaces, and in CI. The workflow only sets up credentials and calls them.
 | `scripts/build-web.sh` | none | Builds `web/` into `dist/web`, stamped with the commit |
 | `scripts/smoke.sh <url>` | none | Checks a deployed site answers and its API reports the same build |
 | `scripts/check-ses.sh <env>` | AWS (read) | Reports the SES identity's DKIM status and expected hosted zone |
+| `scripts/verify-recipient.sh <env> <email>` | AWS | Lets one address receive mail while the account is in the SES sandbox: creates the identity, or reports its status |
 | `scripts/init-infra.sh <env>` | AWS | `terraform init` against the environment's state bucket; the others call it |
 | `PLAN_ONLY=1 scripts/deploy-infra.sh <env>` | AWS | Plans the main infrastructure without changing anything |
 | `scripts/deploy-infra.sh <env>` | AWS | Applies it. CI runs this for beta, then prod, on every push to `main` |

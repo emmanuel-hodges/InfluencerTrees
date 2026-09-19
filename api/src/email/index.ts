@@ -10,9 +10,16 @@ export interface Mail {
   html: string;
 }
 
+/**
+ * What became of a send. `unverified_recipient` is the SES sandbox refusing
+ * an address that is not a verified identity in the account, which no retry
+ * can fix; `failed` is anything else and may be transient.
+ */
+export type SendOutcome = 'sent' | 'unverified_recipient' | 'failed';
+
 export interface Mailer {
-  /** Resolves true when the message was handed to the transport. */
-  send(mail: Mail): Promise<boolean>;
+  /** Resolves 'sent' when the message was handed to the transport. */
+  send(mail: Mail): Promise<SendOutcome>;
 }
 
 export class LogMailer implements Mailer {
@@ -20,10 +27,10 @@ export class LogMailer implements Mailer {
 
   constructor(private readonly log: (line: string) => void = (l) => console.log(l)) {}
 
-  async send(mail: Mail) {
+  async send(mail: Mail): Promise<SendOutcome> {
     this.sent.push(mail);
     this.log(`[mail] to: ${mail.to}\n[mail] subject: ${mail.subject}\n${mail.text}`);
-    return true;
+    return 'sent';
   }
 }
 
@@ -34,7 +41,7 @@ export class SesMailer implements Mailer {
     private readonly client: SESv2Client = new SESv2Client({}),
   ) {}
 
-  async send(mail: Mail) {
+  async send(mail: Mail): Promise<SendOutcome> {
     try {
       await this.client.send(
         new SendEmailCommand({
@@ -52,13 +59,38 @@ export class SesMailer implements Mailer {
           },
         }),
       );
-      return true;
+      return 'sent';
     } catch (e) {
-      // The address is deliberately not logged; the caller reports the failure.
-      console.error('ses send failed', { subject: mail.subject, error: (e as Error).name });
-      return false;
+      const err = e as Error;
+      const outcome = classifySesError(err, mail.to);
+      // Addresses stay out of the log. SES names them in its message, so the
+      // message is kept with every address redacted: it is what says why.
+      console.error('ses send failed', {
+        subject: mail.subject,
+        error: err.name,
+        outcome,
+        detail: redactAddresses(err.message ?? ''),
+      });
+      return outcome;
     }
   }
+}
+
+/**
+ * The sandbox refuses an unverified recipient with MessageRejected and a
+ * message that names the identities that failed. Only a rejection that names
+ * this recipient counts; anything else is an ordinary failure.
+ */
+export function classifySesError(err: Error, to: string): SendOutcome {
+  const message = err.message ?? '';
+  const namesRecipient = message.toLowerCase().includes(to.trim().toLowerCase());
+  if (err.name === 'MessageRejected' && /not verified/i.test(message) && namesRecipient) return 'unverified_recipient';
+  return 'failed';
+}
+
+/** Every email address in `s` replaced with a placeholder. */
+export function redactAddresses(s: string): string {
+  return s.replace(/[^\s,;:<>()"']+@[^\s,;:<>()"']+/g, '<address>');
 }
 
 const escape = (s: string) =>

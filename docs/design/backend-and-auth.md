@@ -177,7 +177,21 @@ new account starts in the SES sandbox, which only delivers to verified
 addresses; beta stays there on purpose, and prod requests production access
 once, by hand, before it invites anyone real. `scripts/check-ses.sh` reports
 DKIM status and the hosted zone SES expects the records to point at, which
-can differ per identity.
+can differ per identity. `scripts/verify-recipient.sh` verifies a tester's
+address while an account is sandboxed.
+
+The sandbox shows up in the application as a refused send. The SES mailer
+tells that refusal (`MessageRejected`, naming the recipient) apart from any
+other failure and reports `unverified_recipient`; the intake and resend
+responses carry it as `emailFailure`, and the site says the address has to
+be verified rather than suggesting a retry. The mailer logs SES's message
+with every address redacted, so the log says why without saying to whom.
+Two facts about SES authorisation were learned from the first real sends:
+the sandbox refuses an unverified recipient with `MessageRejected`, and
+IAM authorises a send against every identity the message touches, a
+verified recipient included, which is why the API role may send to
+`identity/*` under a From-address condition rather than to the domain
+identity alone.
 
 ---
 

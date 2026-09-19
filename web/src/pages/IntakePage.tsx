@@ -10,6 +10,7 @@ import { IdentityPicker, type Identity } from '../components/IdentityPicker';
 import { Notice } from '../components/Notice';
 import { EMPTY_PERSON, personBodyFrom, PersonForm, type PersonValues } from '../components/PersonForm';
 import { usePageTitle } from '../lib/hooks';
+import { invitationFailureText } from '../lib/invitation';
 import { fieldErrorsFrom, FORM_ERROR, type FieldErrors } from '../lib/validation';
 import { useMe, useSession } from '../session';
 
@@ -68,7 +69,7 @@ export function IntakePage() {
         state: {
           notice: r.emailSent
             ? { kind: 'success', text: `Invitation sent to ${parsed.data.email}` }
-            : { kind: 'error', text: 'Saved, but the invitation email failed. Use Resend invitation.' },
+            : { kind: 'error', text: `Saved. ${invitationFailureText(r.emailFailure, parsed.data.email)}` },
         },
       });
     } catch (err) {

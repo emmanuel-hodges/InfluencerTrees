@@ -9,6 +9,7 @@ import { Notice, noticeFromState, type NoticeData } from '../components/Notice';
 import { ObjectionsSection } from '../components/ObjectionsSection';
 import { PersonCardView } from '../components/PersonCardView';
 import { districtLabel, formatDate, stateName } from '../lib/format';
+import { invitationFailureText } from '../lib/invitation';
 import { usePageTitle } from '../lib/hooks';
 import { useMe } from '../session';
 
@@ -38,7 +39,9 @@ export function ConvincePage() {
       );
       setResend((prev) => ({
         ...prev,
-        [person.influencerId]: r.emailSent ? { kind: 'sent' } : { kind: 'failed', message: 'The email failed to send. Try again in a moment.' },
+        [person.influencerId]: r.emailSent
+          ? { kind: 'sent' }
+          : { kind: 'failed', message: invitationFailureText(r.emailFailure, person.email) },
       }));
     } catch (e) {
       setResend((prev) => ({ ...prev, [person.influencerId]: { kind: 'failed', message: errorMessage(e) } }));
