@@ -173,15 +173,30 @@ assumption, a configurable API base, a mobile-first UI).
 
 Each account sends as the domain whose zone it owns: beta as
 `preview.influencertrees.com`, prod as `influencertrees.com`, with DKIM in
-Route 53. Every new account is in the **SES sandbox**: only verified
-addresses receive mail. Beta stays there on purpose; prod requests
-production access by hand before inviting anyone real.
+Route 53. Every new account starts in the **SES sandbox**: only addresses
+verified in the account receive mail.
 
-So a beta tester has to be verified before any invitation or code reaches
-them: `AWS_PROFILE=iad-tf-beta scripts/verify-recipient.sh beta <email>`,
-they click the link AWS sends, then the founder uses *Resend invitation*.
-Until then SES refuses the send, the API reports `unverified_recipient`,
-and the site says the address has to be verified.
+Beta was kept in the sandbox at first, so that pre-production code could
+not email a stranger. On 2026-09-19 that guard was traded for a realistic
+test of onboarding: sandboxed, beta made every tester click an AWS
+verification email before the real invitation could reach them, so
+**production access was requested for beta** with
+`scripts/request-ses-production.sh`. AWS reviews such requests, usually
+within a day. What still bounds beta's sending once granted: only a
+signed-in, onboarded member can trigger an invitation, one typed address at
+a time, with a ten-minute cooldown per invitee; codes are capped per
+address and throttled at the gateway; the Lambda may only send from our
+domain; and the account suppresses bounced and complained addresses. The
+pipeline's role stays denied `ses:PutAccountDetails`, so leaving the
+sandbox remains a human decision in every account; prod requests its own
+access by hand before inviting anyone real.
+
+While an account is sandboxed, including beta until AWS answers, a tester
+has to be verified first: `AWS_PROFILE=iad-tf-beta
+scripts/verify-recipient.sh beta <email>`, they click the link AWS sends,
+then the founder uses *Resend invitation*. Until then SES refuses the send,
+the API reports `unverified_recipient`, and the site says the address has
+to be verified.
 
 ## Decisions still open
 
@@ -306,6 +321,8 @@ Pushing, opening PRs, and anything outward-facing needs an explicit request.
   must import each one, and an imperfect import destroys and recreates.
 - **Domain registration account** — AWS Support case to move.
 - **Account closure takes 90 days** and ties up the root email. No throwaways.
+- **SES production access** — once granted, putting an account back in the
+  sandbox takes an AWS Support case. Requested for beta on 2026-09-19.
 - **Auth model** — decided: an opaque session accepted as a cookie or a bearer
   token, and email as the identity key. Both are what a native shell or a
   later identity provider needs, which is why they were fixed first.
@@ -376,6 +393,7 @@ Codespaces, and in CI. The workflow only sets up credentials and calls them.
 | `scripts/smoke.sh <url>` | none | Checks a deployed site answers and its API reports the same build |
 | `scripts/check-ses.sh <env>` | AWS (read) | Reports the SES identity's DKIM status and expected hosted zone |
 | `scripts/verify-recipient.sh <env> <email>` | AWS | Lets one address receive mail while the account is in the SES sandbox: creates the identity, or reports its status |
+| `scripts/request-ses-production.sh <env> <contact-email>` | AWS | Asks AWS to take the account out of the SES sandbox. Founder-only; AWS reviews it |
 | `scripts/init-infra.sh <env>` | AWS | `terraform init` against the environment's state bucket; the others call it |
 | `PLAN_ONLY=1 scripts/deploy-infra.sh <env>` | AWS | Plans the main infrastructure without changing anything |
 | `scripts/deploy-infra.sh <env>` | AWS | Applies it. CI runs this for beta, then prod, on every push to `main` |

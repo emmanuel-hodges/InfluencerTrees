@@ -19,7 +19,7 @@ Branch `mvp`, pushed to `origin`, seven commits ahead of `main` (run `git log ma
 | Site | `web/src` | Vite + React 19 + react-router 7: login, Convince, Intake 1 of 2, Welcome (Intake 2 of 2), Profile, objections; DiceBear avatars from a seed |
 | Infrastructure | `infra/modules/app`, `infra/modules/static-site`, `infra/beta`, `infra/prod` | DynamoDB, Lambda, HTTP API, SES identity and DKIM, second CloudFront origin for `/api/*`, viewer-request function with SPA fallback |
 | Bootstrap change | `infra/bootstrap/modules/bootstrap/main.tf` | `dynamodb:*`, `ses:*`, conditioned `iam:CreateServiceLinkedRole`, `DenyPipelineDataPlane`; boundary gains the data-plane actions |
-| Pipeline | `.github/workflows/deploy.yml`, `preview.yml`, `scripts/` | `mvp` deploys the beta stage only; prod gated on `main`; API built in the build job, shipped as a second artifact; `test.sh`, `build-api.sh`, `smoke.sh`, `check-ses.sh`, `verify-recipient.sh` |
+| Pipeline | `.github/workflows/deploy.yml`, `preview.yml`, `scripts/` | `mvp` deploys the beta stage only; prod gated on `main`; API built in the build job, shipped as a second artifact; `test.sh`, `build-api.sh`, `smoke.sh`, `check-ses.sh`, `verify-recipient.sh`, `request-ses-production.sh` |
 | Docs | `CLAUDE.md`, `docs/design/backend-and-auth.md`, `infra/*/README.md` | decisions recorded, open-decisions table closed |
 
 Verified: `scripts/test.sh` passes (24 tests), `scripts/check-infra.sh`
@@ -36,8 +36,9 @@ invitation, the invitee signing in and landing on their Intake 2 of 2.
 | Verify the founder's address in beta's SES sandbox | **Done 2026-09-19**; codes arrive. The identity for the earlier address is still pending and can be deleted |
 | First beta deploy of the branch | See *Deploy status* below |
 | First real sign-in on preview.influencertrees.com | **Done 2026-09-19**: the founder signed in, finished Intake 2 of 2, reached Convince, and ran an intake |
-| Verify each beta tester's address before inviting them | **Needed now for the first invitee.** Their address is not a verified identity, so SES refused the invitation and the resend on 2026-09-19. Run `AWS_PROFILE=iad-tf-beta scripts/verify-recipient.sh beta <email>`, they click the link AWS sends, then *Resend invitation* on the Convince page |
-| Before merging to `main`: re-apply `infra/bootstrap/prod` (same two updates), request SES production access in prod, remove `mvp` from `deploy.yml`'s push trigger in the merge PR | Not started |
+| Request SES production access for beta | **Requested 2026-09-19 at 23:58 UTC**, status `PENDING`; AWS had not yet opened the support case when this was written, and `get-account` names it once it has. AWS usually answers within a day, in that case and by email to the founder. Check with `AWS_PROFILE=iad-tf-beta-vo aws sesv2 get-account --query Details.ReviewDetails`. Nothing to redeploy once granted: *Resend invitation* on the Convince page then delivers to the first invitee |
+| Verify a beta tester's address before inviting them | Only needed while beta is still sandboxed, i.e. until the row above is granted, or if AWS declines. The first invitee's address is unverified, so SES refused the invitation and the resend on 2026-09-19. `AWS_PROFILE=iad-tf-beta scripts/verify-recipient.sh beta <email>`, they click the link AWS sends, then *Resend invitation* |
+| Before merging to `main`: re-apply `infra/bootstrap/prod` (same two updates), request SES production access in prod with `scripts/request-ses-production.sh prod <contact-email>`, remove `mvp` from `deploy.yml`'s push trigger in the merge PR | Not started |
 
 ## Deploy status
 
@@ -51,8 +52,11 @@ which proves the function reaches DynamoDB with the new role.
 - SES domain identity `preview.influencertrees.com`: DKIM **SUCCESS**,
   hosted zone `dkim.amazonses.com` (the default; no tfvars change needed),
   verified for sending.
-- Beta stays in the SES sandbox on purpose: production access off, sending
-  enabled, 200 messages a day, verified recipients only.
+- Beta's SES production access is requested (see the table above). Until
+  AWS grants it, beta is sandboxed: sending enabled, 200 messages a day,
+  verified recipients only. The account suppresses bounced and complained
+  addresses and the configuration set has reputation metrics on; both were
+  already so and are cited in the request.
 - The founder's recipient identity is verified. The first invitation went to
   an unverified tester and SES refused it with `MessageRejected`, as the
   sandbox must; the record was kept with `lastInviteSentAt` null, so

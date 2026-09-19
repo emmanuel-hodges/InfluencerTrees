@@ -174,11 +174,17 @@ Each account verifies the domain whose zone it owns: `preview.influencertrees.co
 in beta and `influencertrees.com` in prod, with Easy DKIM CNAME records and a
 DMARC record starting at `p=none`. Beta never touches the apex zone. Every
 new account starts in the SES sandbox, which only delivers to verified
-addresses; beta stays there on purpose, and prod requests production access
-once, by hand, before it invites anyone real. `scripts/check-ses.sh` reports
-DKIM status and the hosted zone SES expects the records to point at, which
-can differ per identity. `scripts/verify-recipient.sh` verifies a tester's
-address while an account is sandboxed.
+addresses. Beta was kept there at first so that pre-production code could
+not email a stranger; that turned out to cost a realistic test of the one
+thing the product does, because every tester had to click an AWS
+verification email before the invitation could reach them. So on
+2026-09-19 production access was requested for beta too, with
+`scripts/request-ses-production.sh`, a human step in every account because
+the deploy role is denied `ses:PutAccountDetails`. Prod requests its own
+before it invites anyone real. `scripts/check-ses.sh` reports DKIM status
+and the hosted zone SES expects the records to point at, which can differ
+per identity. `scripts/verify-recipient.sh` verifies a tester's address
+while an account is still sandboxed.
 
 The sandbox shows up in the application as a refused send. The SES mailer
 tells that refusal (`MessageRejected`, naming the recipient) apart from any

@@ -49,14 +49,23 @@ rows. A preview therefore tests its branch's front end against the API last
 deployed to beta from `main`, and data written from a preview is beta's
 data.
 
-### Email stays in the SES sandbox
+### Email and the SES sandbox
 
-Beta is left in the sandbox on purpose: SES delivers only to addresses
-verified in this account, so nothing a branch does can mail a stranger. To
-receive login codes or invitations from beta, an address has to be verified
-once, the founder's and every tester's alike. The script creates the
-identity, or reports where an existing one stands, and AWS emails the link
-to click:
+A new account's SES delivers only to addresses verified in that account.
+Beta was left that way at first, so that nothing a branch does could mail a
+stranger; on 2026-09-19 production access was requested for beta instead,
+so testers get the real invitation rather than an AWS verification email
+first. The reasoning and what still bounds beta's sending are in
+`CLAUDE.md` under *Email*. The request is a human step, because the deploy
+role is denied `ses:PutAccountDetails`:
+
+```bash
+AWS_PROFILE=iad-tf-beta scripts/request-ses-production.sh beta founder@example.com
+```
+
+Until AWS grants it, an address has to be verified before beta can mail it,
+the founder's and every tester's alike. The script creates the identity, or
+reports where an existing one stands, and AWS emails the link to click:
 
 ```bash
 AWS_PROFILE=iad-tf-beta scripts/verify-recipient.sh beta you@example.com
@@ -64,11 +73,8 @@ AWS_PROFILE=iad-tf-beta scripts/verify-recipient.sh beta you@example.com
 
 An invitation to an address that is not yet verified is refused by SES. The
 API reports it as `unverified_recipient`, the site tells the convincer, and
-*Resend invitation* delivers once the link has been clicked.
-
-Production access is requested for prod alone, by a human — the deploy role
-is denied `ses:PutAccountDetails`. Whether DKIM has verified, and which
-hosted zone SES expects the records in, comes from
+*Resend invitation* delivers once the link has been clicked. Whether DKIM
+has verified, and which hosted zone SES expects the records in, comes from
 `AWS_PROFILE=iad-tf-beta-vo scripts/check-ses.sh beta`.
 
 ### The development table
