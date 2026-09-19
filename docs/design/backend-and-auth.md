@@ -197,6 +197,23 @@ can differ per identity.
 
 ---
 
+## Implementation notes
+
+Two things the first beta apply taught, both now in the modules:
+
+- **A CloudFront function cannot be deleted while the distribution still
+  references it.** Terraform starts orphan deletions immediately, in
+  parallel with everything else, and the distribution's own update lands
+  minutes later. Renaming the function is therefore a replacement that
+  fails on every apply. Beta's function keeps its original name and moves
+  to its new address with a `moved` block, so the SPA fallback is an
+  in-place code update. Prod, which had no function, gets the accurate name.
+- **An API Gateway stage with per-route settings must depend on the
+  routes it names**, or `CreateStage` races them and answers NotFound.
+
+Status and the remaining founder-only steps are tracked in
+`docs/handoff-mvp-part-1.md`.
+
 ## Consequences
 
 - Beta has one Terraform state. While a feature branch is live on the beta

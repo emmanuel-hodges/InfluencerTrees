@@ -11,6 +11,8 @@ backend.hcl
 
 # --- Terraform ---
 .terraform/
+# Hand-run bootstrap applies, kept for inspection; they name account IDs.
+bootstrap-*.log
 *.tfstate
 *.tfstate.*
 crash.log
