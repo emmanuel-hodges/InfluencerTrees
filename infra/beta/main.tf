@@ -78,7 +78,7 @@ module "app" {
   # sns:* in the bootstrap on 2026-09-20. The inbox confirms the subscription
   # once (the "AWS Notification - Subscription Confirmation" email).
   bounce_notification_email = "influencertrees-support@pm.me"
-  dkim_hosted_zone = var.dkim_hosted_zone
+  dkim_hosted_zone          = var.dkim_hosted_zone
 }
 
 # One bucket and one distribution serve every hostname under the domain.
