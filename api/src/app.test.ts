@@ -8,6 +8,7 @@ import { LogMailer, type SendOutcome } from './email/index.js';
 import { MemoryStore } from './store/memory.js';
 
 const FOUNDER = 'Founder@Example.com';
+const SUPPORT = 'influencertrees-support@pm.me';
 const IDEA = '1000-0001';
 
 let app: App;
@@ -71,6 +72,7 @@ beforeEach(() => {
       STORE: 'memory',
       EMAIL_MODE: 'log',
       FOUNDER_EMAIL: FOUNDER,
+      CONTACT_EMAIL: SUPPORT,
       PUBLIC_BASE_URL: ORIGIN,
       COOKIE_SECURE: 'false',
     }),
@@ -87,10 +89,10 @@ describe('health', () => {
     expect(await json(res)).toMatchObject({ ok: true, stage: 'local' });
   });
 
-  it('publishes the contact address for the public pages, the founder by default', async () => {
+  it('publishes the contact address for the public pages', async () => {
     const res = await get('/api/site');
     expect(res.status).toBe(200);
-    expect(await json(res)).toEqual({ contactEmail: FOUNDER, stage: 'local' });
+    expect(await json(res)).toEqual({ contactEmail: SUPPORT, stage: 'local' });
   });
 });
 
@@ -225,8 +227,8 @@ describe('onboarding, intake and the invitee', () => {
     expect(invitation.to).toBe(invitee);
     expect(invitation.subject).toContain(suggest.codename);
     expect(invitation.text).toContain(`${ORIGIN}/login`);
-    expect(invitation.text).toContain(`${ORIGIN}/about`);
-    expect(invitation.text).toContain(`write to ${FOUNDER}`);
+    expect(invitation.text).toContain(`What InfluencerTrees is, what it collects, and who sees it: ${ORIGIN}/about`);
+    expect(invitation.text).toContain(`write to ${SUPPORT}`);
 
     const dup = await post(`/api/ideas/${IDEA}/intake`, { email: invitee.toUpperCase(), ...identity, ...person }, founder.cookie);
     expect(dup.status).toBe(409);
@@ -338,7 +340,14 @@ describe('invitation delivery', () => {
     let outcome: SendOutcome = 'sent';
     const recorder = mailer;
     app = createApp({
-      config: loadConfig({ STORE: 'memory', EMAIL_MODE: 'log', FOUNDER_EMAIL: FOUNDER, PUBLIC_BASE_URL: ORIGIN, COOKIE_SECURE: 'false' }),
+      config: loadConfig({
+        STORE: 'memory',
+        EMAIL_MODE: 'log',
+        FOUNDER_EMAIL: FOUNDER,
+        CONTACT_EMAIL: SUPPORT,
+        PUBLIC_BASE_URL: ORIGIN,
+        COOKIE_SECURE: 'false',
+      }),
       store,
       mailer: {
         send: async (mail) => {

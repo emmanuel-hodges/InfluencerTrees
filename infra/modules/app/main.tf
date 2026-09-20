@@ -409,7 +409,7 @@ resource "aws_lambda_function" "api" {
       SES_CONFIGURATION_SET = aws_sesv2_configuration_set.app.configuration_set_name
       PUBLIC_BASE_URL       = var.public_base_url
       FOUNDER_EMAIL         = var.founder_email
-      CONTACT_EMAIL         = var.contact_email != "" ? var.contact_email : var.founder_email
+      CONTACT_EMAIL         = var.contact_email
       COOKIE_SECURE         = "true"
       BUILD_ENV             = var.environment
     }

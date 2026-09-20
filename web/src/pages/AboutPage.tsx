@@ -1,6 +1,7 @@
-// Public. What the site is, what email it sends, how to stop it, and what it
-// keeps: the page every invitation links to, and the one a mail-provider
-// reviewer reads. Plain facts only; when the product changes, change this.
+// Public. What the site is, what it keeps and who sees it: the page every
+// invitation links to, and one a mail-provider reviewer reads. How to stop
+// email is in the emails themselves and on the Contact page. Plain facts
+// only; when the product changes, change this.
 import { Link } from 'react-router';
 import { ContactAddress } from '../components/ContactAddress';
 import { usePageTitle } from '../lib/hooks';
@@ -9,7 +10,6 @@ import { useSiteInfo } from '../lib/site';
 export function AboutPage() {
   usePageTitle('About');
   const info = useSiteInfo();
-  const sender = `no-reply@${window.location.hostname}`;
 
   return (
     <div className="page stack prose">
@@ -42,7 +42,7 @@ export function AboutPage() {
         </p>
         <p>
           InfluencerTrees does not sell or share this information. To have your account and everything it holds
-          deleted, write to influencertrees-support@pm.me.
+          deleted, write to <ContactAddress info={info} />.
         </p>
       </section>
 

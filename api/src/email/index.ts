@@ -134,14 +134,14 @@ export function invitationMail(to: string, convincerCodename: string, ideaName: 
     `${convincerCodename} convinced you to become an influencer for the idea "${ideaName}" on InfluencerTrees.`,
     `Sign in at ${loginUrl} using this exact email address: ${to}`,
     `There is no password. Each time you sign in, a one-time code is emailed to you.`,
-    `What InfluencerTrees is and what email it sends: ${aboutUrl}`,
+    `What InfluencerTrees is, what it collects, and who sees it: ${aboutUrl}`,
     stop,
   ].join('\n\n');
   const html = wrap([
     `${escape(convincerCodename)} convinced you to become an influencer for the idea "<strong>${escape(ideaName)}</strong>" on InfluencerTrees.`,
     `Sign in at <a href="${escape(loginUrl)}">${escape(loginUrl)}</a> using this exact email address: <strong>${escape(to)}</strong>`,
     `There is no password. Each time you sign in, a one-time code is emailed to you.`,
-    `What InfluencerTrees is and what email it sends: <a href="${escape(aboutUrl)}">${escape(aboutUrl)}</a>`,
+    `What InfluencerTrees is, what it collects, and who sees it: <a href="${escape(aboutUrl)}">${escape(aboutUrl)}</a>`,
     escape(stop),
   ]);
   return { to, subject: `${convincerCodename} invited you to help advance ${ideaName}`, text, html };

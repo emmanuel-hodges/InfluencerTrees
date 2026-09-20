@@ -17,7 +17,7 @@ request is a duplicate and gets closed.
   process they can verify, not a metric.
 - Examples of every message.
 - A verified sending identity, and a website they can look at that says what
-  the service is, what it sends, how to stop it and how to reach a person.
+  the service is and what it keeps, and how to reach a person.
 
 The things the product had to gain before the reply could be honest: a
 reply-to address a person reads, public About and Contact pages, and
@@ -43,11 +43,18 @@ Claims in the reply that can go stale, and what to do when they do:
 - **Ads.** The site will be ad supported. Ads send no email, so the reply
   need not mention them, but the About page no longer says "no advertising"
   and must not be quoted as if it did.
+- **The reply-to.** It is the support inbox, never the founder's address;
+  the first draft said otherwise and was corrected before sending. The About
+  page no longer describes the email or how to stop it; the emails themselves
+  and the Contact page do, so the reply points at `/about` for what is kept
+  and how to get it deleted, and at `/contact` for a person.
 
 ## The reply
 
 Replace `<site>`, `<domain>` and `<contact>`; delete the beta sentence for
-prod.
+prod. This is the founder's edited version of 2026-09-20 with three fixes:
+the consent sentence said the opposite of what it meant, the reply-to named
+the founder, and the invitation sample had to match what the code sends.
 
 ---
 
@@ -57,22 +64,26 @@ Thank you for the review. Here is how InfluencerTrees sends email.
 
 **What the site is.** InfluencerTrees (`<site>`) is a membership site for
 people who convince others of an idea in conversation. Joining is by
-invitation only; there is no sign-up form. What the service is, the email it
-sends, how to stop it and what it keeps are public at `<site>/about`, and a
-contact address a person reads is at `<site>/contact`. *(Beta only: this is
-the pre-production stage of https://influencertrees.com, which runs in a
-separate AWS account and will request production access on its own.)*
+invitation only; there is no sign-up form. What the service is, the
+information it retains, and how to get it deleted are at `<site>/about`,
+and a contact address a person reads is at `<site>/contact`. *(Beta only:
+This is the pre-production stage of https://influencertrees.com, which runs
+in a separate AWS account and will request production access on its own.)*
 
-**How often we send.** Only in response to two actions by a member, described
-below. Expected volume is under 100 messages a day at this stage. We have not
-asked for a quota above the default.
+**How often we send.** Currently, only in response to two actions by a
+member, described in the paragraph below. Expected volume is under 100
+messages a day at this stage. We have not asked for a quota above the
+default.
 
-**How recipient lists are maintained.** There is no list. (1) A six-digit
-sign-in code goes to a member's own address when they ask to sign in; there
-are no passwords. (2) One invitation goes to a person whose address a
-signed-in member types in after speaking with that person, who agreed to
-join. No addresses are imported, purchased, scraped or collected from a
-public form, and no address is emailed except by one of these two actions.
+**How recipient lists are maintained.** The email "list" only grows when a
+member convinces someone to become a part of growing an idea. (1) A
+six-digit sign-in code goes to a member's own address when they ask to sign
+in; there are no passwords. (2) One invitation goes to a person whose
+address a signed-in member types in after speaking with that person, who
+agreed to join. No addresses are imported, purchased, scraped or collected
+from a public form, and today no address is emailed except by one of these
+two actions. Every email is the result of a member's own action and consent,
+and a member can have their account deleted at any time (`<site>/about`).
 
 **Bounces and complaints.** The account-level suppression list is enabled
 for both, so an address that bounces or complains is blocked from any further
@@ -81,18 +92,18 @@ event is also published to an SNS topic that emails the operator. Reputation
 metrics are enabled on the configuration set all mail goes through and are
 watched in CloudWatch.
 
-**Unsubscribe requests.** Every message is transactional and nothing is sent
-on a schedule, so there is nothing to subscribe to. Every message carries a
-reply-to address that a person reads; anyone who replies, or writes to the
-contact address on the site, has their address added to the suppression list
-so nothing more is sent. An invitation can be resent by the inviting member
-at most once every ten minutes, and a sign-in code at most three times per
-address per fifteen minutes, enforced in the application and at the API
-gateway.
+**Unsubscribe requests.** Today, every message is transactional and nothing
+is sent on a schedule, so there is nothing to subscribe to. Every message
+carries a reply-to address that a person reads; anyone who replies, or
+writes to the contact address on the site, has their address added to the
+suppression list so nothing more is sent. An invitation can be resent by the
+inviting member at most once every ten minutes, and a sign-in code at most
+three times per address per fifteen minutes, enforced in the application and
+at the API gateway.
 
 **Verified identity.** The sending domain `<domain>` is a verified domain
 identity in this account with DKIM (three CNAME records) and a DMARC record.
-Mail is sent from `no-reply@<domain>` with the contact address as reply-to.
+Mail is sent from `no-reply@<domain>` with `<contact>` as reply-to.
 
 **Examples.** Plain-text bodies; each is also sent as HTML with the same
 words.
@@ -115,7 +126,7 @@ Democratic US House and Senate Legislators
 >
 > There is no password. Each time you sign in, a one-time code is emailed to you.
 >
-> What InfluencerTrees is and what email it sends: `<site>/about`
+> What InfluencerTrees is, what it collects, and who sees it: `<site>/about`
 >
 > If you would rather not hear from us, reply to this email or write to
 > `<contact>`, and nothing more will be sent to you.

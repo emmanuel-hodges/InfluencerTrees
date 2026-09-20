@@ -194,14 +194,18 @@ unsubscribe requests are handled, and examples. Answering them well needed
 three things the product lacked, all added on 2026-09-20. Every message now
 carries a reply-to that a person reads (`CONTACT_EMAIL`, the founder's
 address by default), because the From is a no-reply and neither domain
-receives mail. Public `/about` and `/contact` pages say what the site is,
-what it sends, how to stop it, what it keeps and who to write to; every
-invitation links `/about` and says how to make sure nothing more arrives. And
+receives mail. A public `/about` page says what the site is, what it keeps
+and who sees it, and `/contact` says how to reach a person, be blocked from
+further mail, or have an account deleted; every invitation links `/about`
+and says how to make sure nothing more arrives. And
 the app module can publish bounces and complaints to an SNS topic that emails
 an inbox, off until the deploy role has `sns:*`. The reply itself is kept in
 `docs/ses-production-access.md` so prod's request starts from it.
 
 **Every sent message must carry `influencertrees-support@pm.me` in the reply-to field.** This is non-negotiable for SES compliance and the user experience.
+Enforced two ways: the app module's `contact_email` defaults to that address
+and no root overrides it, and `makeMailer` throws at startup when SES mode
+has no contact address, so a deployment without a reply-to cannot send.
 
 The sandbox shows up in the application as a refused send. The SES mailer
 tells that refusal (`MessageRejected`, naming the recipient) apart from any

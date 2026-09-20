@@ -22,7 +22,7 @@ Branch `mvp`, pushed to `origin`, seven commits ahead of `main` (run `git log ma
 | Pipeline | `.github/workflows/deploy.yml`, `preview.yml`, `scripts/` | `mvp` deploys the beta stage only; prod gated on `main`; API built in the build job, shipped as a second artifact; `test.sh`, `build-api.sh`, `smoke.sh`, `check-ses.sh`, `verify-recipient.sh`, `request-ses-production.sh` |
 | Docs | `CLAUDE.md`, `docs/design/backend-and-auth.md`, `infra/*/README.md` | decisions recorded, open-decisions table closed |
 
-Verified: `scripts/test.sh` passes (26 tests), `scripts/check-infra.sh`
+Verified: `scripts/test.sh` passes (29 tests), `scripts/check-infra.sh`
 passes, and the whole loop was walked in a browser against the local API:
 founder sign-in, Intake 2 of 2, Convince, an intake that sent an
 invitation, the invitee signing in and landing on their Intake 2 of 2.
@@ -37,7 +37,7 @@ invitation, the invitee signing in and landing on their Intake 2 of 2.
 | First beta deploy of the branch | See *Deploy status* below |
 | First real sign-in on preview.influencertrees.com | **Done 2026-09-19**: the founder signed in, finished Intake 2 of 2, reached Convince, and ran an intake |
 | Request SES production access for beta | **Requested 2026-09-19, marked DENIED within the hour**, support case `178986180400076`, which stays open: AWS asked for sending frequency, list upkeep, bounce, complaint and unsubscribe handling, and examples. The reply is drafted in `docs/ses-production-access.md`; send it in the case once the About page is live on beta. `scripts/request-ses-production.sh` refuses to resubmit after a denial unless `RESUBMIT=1`; reply in the case instead. Standing: `AWS_PROFILE=iad-tf-beta scripts/check-ses.sh beta`. Nothing to redeploy if granted |
-| Re-apply `infra/bootstrap/beta` for `sns:*` (third in-place update) | **Pending**: needs `aws sso login --profile iad-tf-beta`, then a plan and apply in `infra/bootstrap/beta`. Then set `bounce_notification_email = var.founder_email` in `infra/beta/main.tf`, push, and click *Confirm subscription* in the email from AWS Notifications. Until then bounces and complaints are metrics only; the account suppression list still blocks the address |
+| Re-apply `infra/bootstrap/beta` for `sns:*` (third in-place update) | **Pending**: needs `aws sso login --profile iad-tf-beta`, then a plan and apply in `infra/bootstrap/beta`. Then set `bounce_notification_email = "influencertrees-support@pm.me"` in `infra/beta/main.tf`, push, and click *Confirm subscription* in the email AWS Notifications sends to that inbox. Until then bounces and complaints are metrics only; the account suppression list still blocks the address |
 | Verify a beta tester's address before inviting them | **The working path today**, since the request above was denied. The first invitee's address is unverified, so SES refused the invitation and the resend on 2026-09-19. `AWS_PROFILE=iad-tf-beta scripts/verify-recipient.sh beta <email>`, they click the link AWS sends, then *Resend invitation* on the Convince page |
 | Before merging to `main`: re-apply `infra/bootstrap/prod` (same two updates), request SES production access in prod with `scripts/request-ses-production.sh prod <contact-email>`, remove `mvp` from `deploy.yml`'s push trigger in the merge PR | Not started |
 
@@ -164,7 +164,12 @@ value in `infra/beta/terraform.tfvars` as `dkim_hosted_zone` and redeploy.
   `inftrees-app-dev` and for the bootstrap apply.
 - Docker and Java are not needed and were not installed.
 - Contact and reply-to address (2026-09-20): `influencertrees-support@pm.me`,
-  a support inbox the founder reads, set as `contact_email` in both roots.
-  The About page no longer names the first idea, and no longer promises
-  that nothing is sent on a schedule, since system emails are a planned
-  preference.
+  a support inbox the founder reads, now the app module's default, and a
+  must for every sent message. The About page no longer names the first
+  idea, no longer promises that nothing is sent on a schedule (system emails
+  are a planned preference), and, after the founder's own edits the same
+  evening, no longer describes the email at all or mentions cookies; it says
+  what the site is, what it keeps and who sees it, with phone visibility
+  stated as convincer-only. The stop path lives in the emails and on
+  Contact. The invitation's About link now reads "What InfluencerTrees is,
+  what it collects, and who sees it".

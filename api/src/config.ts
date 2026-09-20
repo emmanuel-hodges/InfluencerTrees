@@ -15,7 +15,8 @@ export interface Config {
   founderEmail: string;
   /**
    * An address a person reads: the reply-to of every message, and what the
-   * public About and Contact pages show. Defaults to the founder.
+   * public About and Contact pages show. Required to send for real: the SES
+   * mailer refuses to start without it (see runtime.ts).
    */
   contactEmail: string;
   cookieSecure: boolean;
@@ -44,7 +45,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     sesConfigurationSet: env.SES_CONFIGURATION_SET || undefined,
     publicBaseUrl,
     founderEmail: env.FOUNDER_EMAIL ?? '',
-    contactEmail: env.CONTACT_EMAIL || env.FOUNDER_EMAIL || '',
+    contactEmail: env.CONTACT_EMAIL ?? '',
     cookieSecure: env.COOKIE_SECURE === 'true',
     allowedOriginHosts: [baseHost, `.${baseHost}`, ...extra],
     // Replaced at bundle time by scripts/build-api.sh.

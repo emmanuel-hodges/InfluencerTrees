@@ -30,9 +30,9 @@ variable "founder_email" {
 }
 
 variable "contact_email" {
-  description = "An address a person reads: the reply-to of every message and what the public About and Contact pages show. Empty means the founder's address."
+  description = "An address a person reads: the reply-to of every message and what the public About and Contact pages show. Every sent message must carry the support inbox (CLAUDE.md, Email), so that is the default and roots do not override it."
   type        = string
-  default     = ""
+  default     = "influencertrees-support@pm.me"
 }
 
 variable "bounce_notification_email" {

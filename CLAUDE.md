@@ -214,11 +214,13 @@ the API reports `unverified_recipient`, and the site says the address has
 to be verified.
 
 Every message carries a reply-to that a person reads, `CONTACT_EMAIL` in
-the Lambda: the app module's `contact_email`, `influencertrees-support@pm.me`
-in both roots, with the founder's address as the fallback when it is unset.
-The same address is on the public `/about` and `/contact`
-pages, which also say what the site is, what it sends, how to stop it and
-what it keeps; every invitation links `/about`. Bounces and complaints can
+the Lambda: the app module's `contact_email`, whose default is
+`influencertrees-support@pm.me`, and the API refuses to start in SES mode
+without one. The same address is on the public `/about` page, which says
+what the site is, what it keeps and who sees it, and on `/contact`, which
+says how to reach a person, be blocked from further mail, or have an account
+deleted. Every invitation links `/about` and says how to stop mail: reply,
+or write to the support inbox. Bounces and complaints can
 notify that inbox too: set the app module's `bounce_notification_email`
 and confirm the subscription email once. That needs `sns:*` on the deploy
 role, added to the bootstrap on 2026-09-20 and applied by hand per account.
