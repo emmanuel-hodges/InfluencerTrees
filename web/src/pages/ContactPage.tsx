@@ -18,7 +18,6 @@ export function ContactPage() {
         you did not expect, to have your address blocked so nothing more is sent, or to have your account and its data
         deleted.
       </p>
-      <p>Replies to any email from InfluencerTrees reach the same address. A person reads it and answers within a few days.</p>
       <p>
         <Link to="/about">About InfluencerTrees</Link>
       </p>

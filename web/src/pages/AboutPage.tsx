@@ -23,45 +23,26 @@ export function AboutPage() {
         <p>
           Someone who has been convinced of an idea becomes an influencer for it and can convince others in turn.
           InfluencerTrees records who convinced whom, so an idea grows as a tree of people who have actually talked
-          to each other, not as a mailing list.
+          to each other.
         </p>
         <p>
-          There is no sign-up form. You join when an influencer who has talked with you enters your email address, and
-          you sign in with a one-time code sent to that address. There are no passwords.
-        </p>
-      </section>
-
-      <section className="stack">
-        <h2 className="h2">The email we send</h2>
-        <p>
-          InfluencerTrees sends two kinds of email, both from <code>{sender}</code>, and nothing else:
-        </p>
-        <ul>
-          <li>A six-digit sign-in code, when you ask to sign in. It expires in ten minutes and works once.</li>
-          <li>
-            One invitation, when an influencer adds you, saying who convinced you and how to sign in. That influencer
-            can resend it, at most once every ten minutes.
-          </li>
-        </ul>
-        <p>
-          If you did not expect an invitation, ignoring it is enough. To stop email from InfluencerTrees, reply to any
-          email we have sent you or write to <ContactAddress info={info} />, and we will block your address. Our
-          emails come from <code>{sender}</code>, but a reply to them still reaches that same address.
+          You join when an influencer who has talked with you enters your email address, and you sign in with a
+          one-time code sent to that address. There are no passwords.
         </p>
       </section>
 
       <section className="stack">
         <h2 className="h2">What we keep, and who sees it</h2>
         <p>
-          Your email address; the codename and avatar you confirm; if you gave them, your state, ZIP code, phone
+          Your email address; the codename and avatar you confirm; if you gave them: your state, ZIP code, phone
           number, and answers about the particular idea you chose to be a part of; and who convinced you to join.
-          You choose who among the people in your idea’s tree can see your email address and phone number. The site
-          itself always keeps your address, because it is how you sign in.
+          You choose who among the people in your idea’s tree can see your email address and only the person who
+          convinced you of the idea can see your phone number if you agree and decide to share it. The site itself
+          always keeps your email address, because it is how you sign in.
         </p>
         <p>
-          InfluencerTrees does not sell or share this information. Today the only cookie is the one that keeps you
-          signed in; if that changes, this page will say so. To have your account and everything it holds deleted,
-          write to <ContactAddress info={info} />.
+          InfluencerTrees does not sell or share this information. To have your account and everything it holds
+          deleted, write to influencertrees-support@pm.me.
         </p>
       </section>
 
