@@ -2,7 +2,7 @@
 // sent to it. request-code always answers { ok: true } so the page never
 // learns (or reveals) whether an address is known.
 import { useEffect, useId, useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { requestCodeBody, verifyBody, type VerifyResponse } from '@inftrees/shared';
 import { api, ApiRequestError, errorMessage } from '../api';
 import { describedBy, Field } from '../components/Field';
@@ -191,6 +191,10 @@ export function LoginPage() {
           </form>
         )}
       </div>
+      <nav className="login__links" aria-label="About this site">
+        <Link to="/about">About</Link>
+        <Link to="/contact">Contact us</Link>
+      </nav>
     </div>
   );
 }

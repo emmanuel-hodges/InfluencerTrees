@@ -29,6 +29,18 @@ variable "founder_email" {
   default     = ""
 }
 
+variable "contact_email" {
+  description = "An address a person reads: the reply-to of every message and what the public About and Contact pages show. Empty means the founder's address."
+  type        = string
+  default     = ""
+}
+
+variable "bounce_notification_email" {
+  description = "Inbox that receives every bounce and complaint SES records, through an SNS topic whose subscription that inbox confirms once. Empty, the default, creates nothing. Needs sns:* on the deploy role (bootstrap, 2026-09-20)."
+  type        = string
+  default     = ""
+}
+
 variable "public_base_url" {
   description = "Origin the site is served from, e.g. https://preview.influencertrees.com. The API builds the links in its email from it."
   type        = string

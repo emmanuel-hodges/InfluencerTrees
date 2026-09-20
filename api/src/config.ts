@@ -13,6 +13,11 @@ export interface Config {
   sesConfigurationSet: string | undefined;
   publicBaseUrl: string;
   founderEmail: string;
+  /**
+   * An address a person reads: the reply-to of every message, and what the
+   * public About and Contact pages show. Defaults to the founder.
+   */
+  contactEmail: string;
   cookieSecure: boolean;
   /** Exact hosts, or ".suffix" entries that match any subdomain. */
   allowedOriginHosts: string[];
@@ -39,6 +44,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     sesConfigurationSet: env.SES_CONFIGURATION_SET || undefined,
     publicBaseUrl,
     founderEmail: env.FOUNDER_EMAIL ?? '',
+    contactEmail: env.CONTACT_EMAIL || env.FOUNDER_EMAIL || '',
     cookieSecure: env.COOKIE_SECURE === 'true',
     allowedOriginHosts: [baseHost, `.${baseHost}`, ...extra],
     // Replaced at bundle time by scripts/build-api.sh.

@@ -41,8 +41,14 @@ export function Layout() {
         <Outlet />
       </main>
       <footer className="site-footer">
-        <div className="container">
-          build <code>{commit}</code>
+        <div className="container site-footer__inner">
+          <nav className="site-footer__links" aria-label="About this site">
+            <Link to="/about">About</Link>
+            <Link to="/contact">Contact us</Link>
+          </nav>
+          <span>
+            build <code>{commit}</code>
+          </span>
         </div>
       </footer>
     </div>

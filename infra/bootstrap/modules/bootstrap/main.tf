@@ -248,6 +248,7 @@ data "aws_iam_policy_document" "deploy_permissions" {
       "apigateway:*",
       "logs:*",
       "cloudwatch:*",
+      "sns:*", # the topic SES publishes bounces and complaints to (2026-09-20)
       "xray:*",
       "ssm:GetParameter",
       "ssm:GetParameters",

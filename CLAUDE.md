@@ -205,6 +205,15 @@ then the founder uses *Resend invitation*. Until then SES refuses the send,
 the API reports `unverified_recipient`, and the site says the address has
 to be verified.
 
+Every message carries a reply-to that a person reads, `CONTACT_EMAIL` in
+the Lambda: the founder's address unless the app module's `contact_email`
+says otherwise. The same address is on the public `/about` and `/contact`
+pages, which also say what the site is, what it sends, how to stop it and
+what it keeps; every invitation links `/about`. Bounces and complaints can
+notify that inbox too: set the app module's `bounce_notification_email`
+and confirm the subscription email once. That needs `sns:*` on the deploy
+role, added to the bootstrap on 2026-09-20 and applied by hand per account.
+
 ## Decisions still open
 
 None at present. The two that were open, mobile approach and backend shape,

@@ -11,13 +11,13 @@ const sandboxRejection = (identity: string) =>
     { name: 'MessageRejected' },
   );
 
-function sesThat(result: 'accepts' | Error) {
-  const send = vi.fn(async () => {
+function sesThat(result: 'accepts' | Error, replyTo?: string) {
+  const send = vi.fn(async (_command: { input: Record<string, unknown> }) => {
     if (result instanceof Error) throw result;
     return {};
   });
   const client = { send } as unknown as SESv2Client;
-  return { mailer: new SesMailer('InfluencerTrees <no-reply@example.com>', 'inftrees-test', client), send };
+  return { mailer: new SesMailer('InfluencerTrees <no-reply@example.com>', 'inftrees-test', replyTo, client), send };
 }
 
 const mail = loginCodeMail('someone@example.com', '123456', 10);
@@ -47,6 +47,13 @@ describe('SesMailer', () => {
     const { mailer, send } = sesThat('accepts');
     expect(await mailer.send(mail)).toBe('sent');
     expect(send).toHaveBeenCalledTimes(1);
+    expect(send.mock.calls[0]![0].input.ReplyToAddresses).toBeUndefined();
+  });
+
+  it('puts the contact address in reply-to, since From is a no-reply', async () => {
+    const { mailer, send } = sesThat('accepts', 'people@example.com');
+    await mailer.send(mail);
+    expect(send.mock.calls[0]![0].input.ReplyToAddresses).toEqual(['people@example.com']);
   });
 });
 

@@ -254,6 +254,13 @@ export interface HealthResponse {
   stage: string;
 }
 
+/** Public facts the site shows before anyone signs in. */
+export interface SiteInfoResponse {
+  /** An address a person reads; also the reply-to of every message sent. */
+  contactEmail: string | null;
+  stage: string;
+}
+
 export interface ApiError {
   error: string;
   message: string;

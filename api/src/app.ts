@@ -6,7 +6,7 @@ import {
   DEFAULT_PREFS, ORIGIN_CONVINCER_ID, intakeBody, normalizeCodename, normalizeEmail, objectionBody, onboardingBody,
   prefsBody, prefsToDisplayPrefIds, profileUpdateBody, requestCodeBody, verifyBody,
   type ApiError, type EmailFailure, type HealthResponse, type IdeaSummary, type IntakeResponse, type MeResponse, type Objection,
-  type PersonCard, type Profile, type ResendResponse, type Subscription, type SuggestResponse, type VerifyResponse,
+  type PersonCard, type Profile, type ResendResponse, type SiteInfoResponse, type Subscription, type SuggestResponse, type VerifyResponse,
 } from '@inftrees/shared';
 import { Hono, type Context, type MiddlewareHandler } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
@@ -85,6 +85,10 @@ export function createApp(deps: AppDeps) {
   });
 
   app.get('/health', (c) => c.json<HealthResponse>({ ok: true, commit: config.buildCommit, stage: config.stage }));
+
+  // Read by the public About and Contact pages. The address is public on
+  // purpose: it is the one that also answers replies to every email sent.
+  app.get('/site', (c) => c.json<SiteInfoResponse>({ contactEmail: config.contactEmail || null, stage: config.stage }));
 
   // --- sign in ------------------------------------------------------------
 
@@ -441,7 +445,9 @@ export function createApp(deps: AppDeps) {
     if (result === 'codename_taken') return fail(c, 409, 'codename_taken', 'That codename was just taken. Generate a new one.');
 
     const idea = await store.getIdea(ideaId);
-    const outcome = await mailer.send(invitationMail(influencer.email, me.codename, idea?.name ?? 'the idea', config.publicBaseUrl));
+    const outcome = await mailer.send(
+      invitationMail(influencer.email, me.codename, idea?.name ?? 'the idea', config.publicBaseUrl, config.contactEmail),
+    );
     const emailSent = outcome === 'sent';
     if (emailSent) await store.putSubscription({ ...sub, lastInviteSentAt: t });
 
@@ -464,7 +470,9 @@ export function createApp(deps: AppDeps) {
       return fail(c, 429, 'rate_limited', 'An invitation was sent recently. Try again in a few minutes.');
     }
     const idea = await store.getIdea(ideaId);
-    const outcome = await mailer.send(invitationMail(target.email, me.codename, idea?.name ?? 'the idea', config.publicBaseUrl));
+    const outcome = await mailer.send(
+      invitationMail(target.email, me.codename, idea?.name ?? 'the idea', config.publicBaseUrl, config.contactEmail),
+    );
     const emailSent = outcome === 'sent';
     if (emailSent) await store.putSubscription({ ...sub, lastInviteSentAt: t.toISOString() });
     return c.json<ResendResponse>({ ok: true, emailSent, emailFailure: failureOf(outcome) });

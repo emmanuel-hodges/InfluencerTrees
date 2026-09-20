@@ -173,6 +173,73 @@ resource "aws_sesv2_configuration_set_event_destination" "cloudwatch" {
   }
 }
 
+# Bounces and complaints also reach a person, when an inbox is named: SES
+# publishes each event to a topic that emails it, and that inbox confirms
+# the subscription once. Off by default, because the deploy role only gained
+# sns:* in the bootstrap on 2026-09-20 and an account whose bootstrap
+# predates that cannot create the topic.
+resource "aws_sns_topic" "mail_events" {
+  count = var.bounce_notification_email == "" ? 0 : 1
+  name  = "${local.name}-mail-events"
+  tags  = local.tags
+}
+
+data "aws_iam_policy_document" "mail_events" {
+  count = var.bounce_notification_email == "" ? 0 : 1
+
+  statement {
+    sid       = "SesPublishesEvents"
+    effect    = "Allow"
+    actions   = ["sns:Publish"]
+    resources = [aws_sns_topic.mail_events[0].arn]
+
+    principals {
+      type        = "Service"
+      identifiers = ["ses.amazonaws.com"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceAccount"
+      values   = [var.account_id]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceArn"
+      values   = [aws_sesv2_configuration_set.app.arn]
+    }
+  }
+}
+
+resource "aws_sns_topic_policy" "mail_events" {
+  count  = var.bounce_notification_email == "" ? 0 : 1
+  arn    = aws_sns_topic.mail_events[0].arn
+  policy = data.aws_iam_policy_document.mail_events[0].json
+}
+
+resource "aws_sns_topic_subscription" "mail_events_email" {
+  count     = var.bounce_notification_email == "" ? 0 : 1
+  topic_arn = aws_sns_topic.mail_events[0].arn
+  protocol  = "email"
+  endpoint  = var.bounce_notification_email
+}
+
+resource "aws_sesv2_configuration_set_event_destination" "notify" {
+  count                  = var.bounce_notification_email == "" ? 0 : 1
+  configuration_set_name = aws_sesv2_configuration_set.app.configuration_set_name
+  event_destination_name = "notify"
+
+  event_destination {
+    enabled              = true
+    matching_event_types = ["BOUNCE", "COMPLAINT"]
+
+    sns_destination {
+      topic_arn = aws_sns_topic.mail_events[0].arn
+    }
+  }
+}
+
 resource "aws_sesv2_email_identity" "domain" {
   email_identity         = var.domain_name
   configuration_set_name = aws_sesv2_configuration_set.app.configuration_set_name
@@ -342,6 +409,7 @@ resource "aws_lambda_function" "api" {
       SES_CONFIGURATION_SET = aws_sesv2_configuration_set.app.configuration_set_name
       PUBLIC_BASE_URL       = var.public_base_url
       FOUNDER_EMAIL         = var.founder_email
+      CONTACT_EMAIL         = var.contact_email != "" ? var.contact_email : var.founder_email
       COOKIE_SECURE         = "true"
       BUILD_ENV             = var.environment
     }

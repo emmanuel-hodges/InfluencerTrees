@@ -38,6 +38,8 @@ export class SesMailer implements Mailer {
   constructor(
     private readonly from: string,
     private readonly configurationSet: string | undefined,
+    /** An address a person reads. From is a no-reply, so replies go here. */
+    private readonly replyTo: string | undefined = undefined,
     private readonly client: SESv2Client = new SESv2Client({}),
   ) {}
 
@@ -46,6 +48,7 @@ export class SesMailer implements Mailer {
       await this.client.send(
         new SendEmailCommand({
           FromEmailAddress: this.from,
+          ReplyToAddresses: this.replyTo ? [this.replyTo] : undefined,
           Destination: { ToAddresses: [mail.to] },
           ConfigurationSetName: this.configurationSet,
           Content: {
@@ -115,17 +118,31 @@ export function loginCodeMail(to: string, code: string, minutes: number): Mail {
   return { to, subject: 'Your InfluencerTrees sign-in code', text, html };
 }
 
-export function invitationMail(to: string, convincerCodename: string, ideaName: string, baseUrl: string): Mail {
-  const loginUrl = `${baseUrl.replace(/\/$/, '')}/login`;
+/**
+ * The one message a person receives without asking. So it says who sent it
+ * and why, links the public page that explains the site and its email, and
+ * says how to make sure nothing more arrives.
+ */
+export function invitationMail(to: string, convincerCodename: string, ideaName: string, baseUrl: string, contactEmail?: string): Mail {
+  const base = baseUrl.replace(/\/$/, '');
+  const loginUrl = `${base}/login`;
+  const aboutUrl = `${base}/about`;
+  const stop = contactEmail
+    ? `If you would rather not hear from us, reply to this email or write to ${contactEmail}, and nothing more will be sent to you.`
+    : `If you would rather not hear from us, reply to this email and nothing more will be sent to you.`;
   const text = [
     `${convincerCodename} convinced you to become an influencer for the idea "${ideaName}" on InfluencerTrees.`,
     `Sign in at ${loginUrl} using this exact email address: ${to}`,
     `There is no password. Each time you sign in, a one-time code is emailed to you.`,
+    `What InfluencerTrees is and what email it sends: ${aboutUrl}`,
+    stop,
   ].join('\n\n');
   const html = wrap([
     `${escape(convincerCodename)} convinced you to become an influencer for the idea "<strong>${escape(ideaName)}</strong>" on InfluencerTrees.`,
     `Sign in at <a href="${escape(loginUrl)}">${escape(loginUrl)}</a> using this exact email address: <strong>${escape(to)}</strong>`,
     `There is no password. Each time you sign in, a one-time code is emailed to you.`,
+    `What InfluencerTrees is and what email it sends: <a href="${escape(aboutUrl)}">${escape(aboutUrl)}</a>`,
+    escape(stop),
   ]);
   return { to, subject: `${convincerCodename} invited you to help advance ${ideaName}`, text, html };
 }

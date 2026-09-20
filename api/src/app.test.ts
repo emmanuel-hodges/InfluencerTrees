@@ -86,6 +86,12 @@ describe('health', () => {
     expect(res.status).toBe(200);
     expect(await json(res)).toMatchObject({ ok: true, stage: 'local' });
   });
+
+  it('publishes the contact address for the public pages, the founder by default', async () => {
+    const res = await get('/api/site');
+    expect(res.status).toBe(200);
+    expect(await json(res)).toEqual({ contactEmail: FOUNDER, stage: 'local' });
+  });
 });
 
 describe('sign in', () => {
@@ -219,6 +225,8 @@ describe('onboarding, intake and the invitee', () => {
     expect(invitation.to).toBe(invitee);
     expect(invitation.subject).toContain(suggest.codename);
     expect(invitation.text).toContain(`${ORIGIN}/login`);
+    expect(invitation.text).toContain(`${ORIGIN}/about`);
+    expect(invitation.text).toContain(`write to ${FOUNDER}`);
 
     const dup = await post(`/api/ideas/${IDEA}/intake`, { email: invitee.toUpperCase(), ...identity, ...person }, founder.cookie);
     expect(dup.status).toBe(409);

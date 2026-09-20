@@ -16,13 +16,13 @@ Branch `mvp`, pushed to `origin`, seven commits ahead of `main` (run `git log ma
 |---|---|---|
 | Shared contract | `packages/shared/src` | zod request schemas, response types, US states and House seats, sharing-preference catalogue, codename and avatar helpers |
 | API | `api/src` | Hono app (`app.ts`), config, store interface with in-memory and DynamoDB implementations, SES and log mailers, seed, Lambda and local entry points, end-to-end test |
-| Site | `web/src` | Vite + React 19 + react-router 7: login, Convince, Intake 1 of 2, Welcome (Intake 2 of 2), Profile, objections; DiceBear avatars from a seed |
+| Site | `web/src` | Vite + React 19 + react-router 7: login, Convince, Intake 1 of 2, Welcome (Intake 2 of 2), Profile, objections; public About and Contact pages; DiceBear avatars from a seed |
 | Infrastructure | `infra/modules/app`, `infra/modules/static-site`, `infra/beta`, `infra/prod` | DynamoDB, Lambda, HTTP API, SES identity and DKIM, second CloudFront origin for `/api/*`, viewer-request function with SPA fallback |
 | Bootstrap change | `infra/bootstrap/modules/bootstrap/main.tf` | `dynamodb:*`, `ses:*`, conditioned `iam:CreateServiceLinkedRole`, `DenyPipelineDataPlane`; boundary gains the data-plane actions |
 | Pipeline | `.github/workflows/deploy.yml`, `preview.yml`, `scripts/` | `mvp` deploys the beta stage only; prod gated on `main`; API built in the build job, shipped as a second artifact; `test.sh`, `build-api.sh`, `smoke.sh`, `check-ses.sh`, `verify-recipient.sh`, `request-ses-production.sh` |
 | Docs | `CLAUDE.md`, `docs/design/backend-and-auth.md`, `infra/*/README.md` | decisions recorded, open-decisions table closed |
 
-Verified: `scripts/test.sh` passes (24 tests), `scripts/check-infra.sh`
+Verified: `scripts/test.sh` passes (26 tests), `scripts/check-infra.sh`
 passes, and the whole loop was walked in a browser against the local API:
 founder sign-in, Intake 2 of 2, Convince, an intake that sent an
 invitation, the invitee signing in and landing on their Intake 2 of 2.
@@ -36,7 +36,8 @@ invitation, the invitee signing in and landing on their Intake 2 of 2.
 | Verify the founder's address in beta's SES sandbox | **Done 2026-09-19**; codes arrive. The identity for the earlier address is still pending and can be deleted |
 | First beta deploy of the branch | See *Deploy status* below |
 | First real sign-in on preview.influencertrees.com | **Done 2026-09-19**: the founder signed in, finished Intake 2 of 2, reached Convince, and ran an intake |
-| Request SES production access for beta | **Requested 2026-09-19 at 23:58 UTC and DENIED within the hour**, support case `178986180400076`. AWS's reasons are in the email to the founder and in Support Center for the beta account; the Support API needs a paid plan, so the CLI cannot read them. Next: answer in the case with what AWS asks for, or leave beta sandboxed and rely on the row below. `scripts/request-ses-production.sh` refuses to resubmit after a denial unless `RESUBMIT=1`. Standing: `AWS_PROFILE=iad-tf-beta scripts/check-ses.sh beta`. Nothing to redeploy if it is ever granted |
+| Request SES production access for beta | **Requested 2026-09-19, marked DENIED within the hour**, support case `178986180400076`, which stays open: AWS asked for sending frequency, list upkeep, bounce, complaint and unsubscribe handling, and examples. The reply is drafted in `docs/ses-production-access.md`; send it in the case once the About page is live on beta. `scripts/request-ses-production.sh` refuses to resubmit after a denial unless `RESUBMIT=1`; reply in the case instead. Standing: `AWS_PROFILE=iad-tf-beta scripts/check-ses.sh beta`. Nothing to redeploy if granted |
+| Re-apply `infra/bootstrap/beta` for `sns:*` (third in-place update) | **Pending**: needs `aws sso login --profile iad-tf-beta`, then a plan and apply in `infra/bootstrap/beta`. Then set `bounce_notification_email = var.founder_email` in `infra/beta/main.tf`, push, and click *Confirm subscription* in the email from AWS Notifications. Until then bounces and complaints are metrics only; the account suppression list still blocks the address |
 | Verify a beta tester's address before inviting them | **The working path today**, since the request above was denied. The first invitee's address is unverified, so SES refused the invitation and the resend on 2026-09-19. `AWS_PROFILE=iad-tf-beta scripts/verify-recipient.sh beta <email>`, they click the link AWS sends, then *Resend invitation* on the Convince page |
 | Before merging to `main`: re-apply `infra/bootstrap/prod` (same two updates), request SES production access in prod with `scripts/request-ses-production.sh prod <contact-email>`, remove `mvp` from `deploy.yml`'s push trigger in the merge PR | Not started |
 
@@ -109,13 +110,15 @@ value in `infra/beta/terraform.tfvars` as `dkim_hosted_zone` and redeploy.
 
 - IdeaList, TreeView, Survey, and idea content: skipped per the spec. The
   Convince page shows disabled "coming soon" affordances where they belong.
-- Alarms and a notification topic for SES bounces (metrics exist under the
-  configuration set).
+- Alarms on the SES metrics. A bounce and complaint notification topic now
+  exists in the app module, off until the bootstrap gains `sns:*`.
 - DMARC `rua=` reporting address and a custom MAIL FROM domain.
 - An origin-verify header on the `execute-api` hostname, if abuse appears.
 - Front-end unit tests; the site is verified by typecheck, build, and the
   browser walkthrough.
-- Account deletion and a privacy page.
+- Account deletion in the product. The public About page says what is kept
+  and that deletion is on request to the contact address; until deletion
+  exists, the founder does it by hand in the table.
 
 ## Gotchas learned the hard way
 

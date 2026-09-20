@@ -12,7 +12,7 @@ export function makeStore(config: Config): Store {
 }
 
 export function makeMailer(config: Config): Mailer {
-  if (config.emailMode === 'ses') return new SesMailer(config.sesFrom, config.sesConfigurationSet);
+  if (config.emailMode === 'ses') return new SesMailer(config.sesFrom, config.sesConfigurationSet, config.contactEmail || undefined);
   return new LogMailer();
 }
 

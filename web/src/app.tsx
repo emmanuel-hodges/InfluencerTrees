@@ -1,10 +1,13 @@
 // Routes and the two guards that keep them honest:
-//  - RequireSession: everything but /login needs a signed-in user, and a user
-//    who has not finished onboarding is held on /welcome until they have.
+//  - RequireSession: everything but /login, /about and /contact needs a
+//    signed-in user, and a user who has not finished onboarding is held on
+//    /welcome until they have.
 //  - PublicOnly: a signed-in user who lands on /login is sent home.
 import type { ReactNode } from 'react';
 import { createBrowserRouter, Navigate, Outlet, RouterProvider, useLocation } from 'react-router';
 import { Layout, LoadingScreen } from './components/Layout';
+import { AboutPage } from './pages/AboutPage';
+import { ContactPage } from './pages/ContactPage';
 import { ConvincePage } from './pages/ConvincePage';
 import { IntakePage } from './pages/IntakePage';
 import { LoginPage } from './pages/LoginPage';
@@ -40,6 +43,14 @@ const router = createBrowserRouter([
         <LoginPage />
       </PublicOnly>
     ),
+  },
+  // Public, signed in or not: what the site is and how to reach a person.
+  {
+    element: <Layout />,
+    children: [
+      { path: '/about', element: <AboutPage /> },
+      { path: '/contact', element: <ContactPage /> },
+    ],
   },
   {
     element: <RequireSession />,

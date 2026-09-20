@@ -166,6 +166,8 @@ use them.
 ## Known looseness
 
 `ApplicationInfrastructure` grants service-level wildcards (`s3:*`,
-`cloudfront:*`, `lambda:*`) because the resource set is not known yet. The
+`cloudfront:*`, `lambda:*`, and since 2026-09-20 `sns:*`, for the topic SES
+publishes bounces and complaints to) because the resource set is not known
+yet. The
 account boundary is the primary control; this policy is the secondary one.
 Tighten to specific ARNs once the hello-world exists and real names are known.
