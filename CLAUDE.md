@@ -101,8 +101,12 @@ aws sso login --profile iad-tf-beta
 ```
 
 One login authorises every profile — they share the session. Prefer a `-vo`
-profile for anything that only reads. Works from Codespaces via the device-code
-flow, so the iPad path is preserved.
+profile for anything that only reads. One known gap: the ViewOnlyAccess
+permission set allows only `ses:List*`, so SES reads such as `get-account`,
+`get-email-identity` and `scripts/check-ses.sh` need the admin profile; the
+symptom is `AccessDeniedException` on the action, not an expired session.
+Works from Codespaces via the device-code flow, so the iPad path is
+preserved.
 
 ⚠️ **Only one `[sso-session]` block may exist.** The wizard emits a session
 alongside each profile, so copying its output verbatim produces duplicates and
@@ -182,7 +186,10 @@ test of onboarding: sandboxed, beta made every tester click an AWS
 verification email before the real invitation could reach them, so
 **production access was requested for beta** with
 `scripts/request-ses-production.sh`. AWS reviews such requests, usually
-within a day. What still bounds beta's sending once granted: only a
+within a day; the first one, for beta, was **denied** the same day (support
+case `178986180400076`), so beta is sandboxed until an answer in that case
+succeeds, and testers are verified by hand meanwhile. What still bounds
+beta's sending once granted: only a
 signed-in, onboarded member can trigger an invitation, one typed address at
 a time, with a ten-minute cooldown per invitee; codes are capped per
 address and throttled at the gateway; the Lambda may only send from our
@@ -322,7 +329,8 @@ Pushing, opening PRs, and anything outward-facing needs an explicit request.
 - **Domain registration account** — AWS Support case to move.
 - **Account closure takes 90 days** and ties up the root email. No throwaways.
 - **SES production access** — once granted, putting an account back in the
-  sandbox takes an AWS Support case. Requested for beta on 2026-09-19.
+  sandbox takes an AWS Support case. Requested for beta on 2026-09-19 and
+  denied; the handoff has the state.
 - **Auth model** — decided: an opaque session accepted as a cookie or a bearer
   token, and email as the identity key. Both are what a native shell or a
   later identity provider needs, which is why they were fixed first.
@@ -391,7 +399,7 @@ Codespaces, and in CI. The workflow only sets up credentials and calls them.
 | `scripts/build-api.sh` | none | Bundles the API into `dist/api/api.zip` for Lambda |
 | `scripts/build-web.sh` | none | Builds `web/` into `dist/web`, stamped with the commit |
 | `scripts/smoke.sh <url>` | none | Checks a deployed site answers and its API reports the same build |
-| `scripts/check-ses.sh <env>` | AWS (read) | Reports the SES identity's DKIM status and expected hosted zone |
+| `scripts/check-ses.sh <env>` | AWS (admin, read-only) | Reports the account's sandbox or review status and the identity's DKIM status and expected hosted zone |
 | `scripts/verify-recipient.sh <env> <email>` | AWS | Lets one address receive mail while the account is in the SES sandbox: creates the identity, or reports its status |
 | `scripts/request-ses-production.sh <env> <contact-email>` | AWS | Asks AWS to take the account out of the SES sandbox. Founder-only; AWS reviews it |
 | `scripts/init-infra.sh <env>` | AWS | `terraform init` against the environment's state bucket; the others call it |

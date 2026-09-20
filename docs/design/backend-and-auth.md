@@ -180,8 +180,10 @@ thing the product does, because every tester had to click an AWS
 verification email before the invitation could reach them. So on
 2026-09-19 production access was requested for beta too, with
 `scripts/request-ses-production.sh`, a human step in every account because
-the deploy role is denied `ses:PutAccountDetails`. Prod requests its own
-before it invites anyone real. `scripts/check-ses.sh` reports DKIM status
+the deploy role is denied `ses:PutAccountDetails`. AWS denied that first
+request the same day; its reasons live in the support case, and the answer
+to them is the next step. Prod requests its own before it invites anyone
+real, and should learn from beta's case first. `scripts/check-ses.sh` reports DKIM status
 and the hosted zone SES expects the records to point at, which can differ
 per identity. `scripts/verify-recipient.sh` verifies a tester's address
 while an account is still sandboxed.

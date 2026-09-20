@@ -75,7 +75,9 @@ An invitation to an address that is not yet verified is refused by SES. The
 API reports it as `unverified_recipient`, the site tells the convincer, and
 *Resend invitation* delivers once the link has been clicked. Whether DKIM
 has verified, and which hosted zone SES expects the records in, comes from
-`AWS_PROFILE=iad-tf-beta-vo scripts/check-ses.sh beta`.
+`AWS_PROFILE=iad-tf-beta scripts/check-ses.sh beta`, which also shows whether
+the account is out of the sandbox or has a review pending. It needs the
+admin profile: ViewOnlyAccess allows only `ses:List*`.
 
 ### The development table
 

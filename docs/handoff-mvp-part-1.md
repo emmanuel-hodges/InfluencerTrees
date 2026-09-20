@@ -36,8 +36,8 @@ invitation, the invitee signing in and landing on their Intake 2 of 2.
 | Verify the founder's address in beta's SES sandbox | **Done 2026-09-19**; codes arrive. The identity for the earlier address is still pending and can be deleted |
 | First beta deploy of the branch | See *Deploy status* below |
 | First real sign-in on preview.influencertrees.com | **Done 2026-09-19**: the founder signed in, finished Intake 2 of 2, reached Convince, and ran an intake |
-| Request SES production access for beta | **Requested 2026-09-19 at 23:58 UTC**, status `PENDING`; AWS had not yet opened the support case when this was written, and `get-account` names it once it has. AWS usually answers within a day, in that case and by email to the founder. Check with `AWS_PROFILE=iad-tf-beta-vo aws sesv2 get-account --query Details.ReviewDetails`. Nothing to redeploy once granted: *Resend invitation* on the Convince page then delivers to the first invitee |
-| Verify a beta tester's address before inviting them | Only needed while beta is still sandboxed, i.e. until the row above is granted, or if AWS declines. The first invitee's address is unverified, so SES refused the invitation and the resend on 2026-09-19. `AWS_PROFILE=iad-tf-beta scripts/verify-recipient.sh beta <email>`, they click the link AWS sends, then *Resend invitation* |
+| Request SES production access for beta | **Requested 2026-09-19 at 23:58 UTC and DENIED within the hour**, support case `178986180400076`. AWS's reasons are in the email to the founder and in Support Center for the beta account; the Support API needs a paid plan, so the CLI cannot read them. Next: answer in the case with what AWS asks for, or leave beta sandboxed and rely on the row below. `scripts/request-ses-production.sh` refuses to resubmit after a denial unless `RESUBMIT=1`. Standing: `AWS_PROFILE=iad-tf-beta scripts/check-ses.sh beta`. Nothing to redeploy if it is ever granted |
+| Verify a beta tester's address before inviting them | **The working path today**, since the request above was denied. The first invitee's address is unverified, so SES refused the invitation and the resend on 2026-09-19. `AWS_PROFILE=iad-tf-beta scripts/verify-recipient.sh beta <email>`, they click the link AWS sends, then *Resend invitation* on the Convince page |
 | Before merging to `main`: re-apply `infra/bootstrap/prod` (same two updates), request SES production access in prod with `scripts/request-ses-production.sh prod <contact-email>`, remove `mvp` from `deploy.yml`'s push trigger in the merge PR | Not started |
 
 ## Deploy status
@@ -52,8 +52,8 @@ which proves the function reaches DynamoDB with the new role.
 - SES domain identity `preview.influencertrees.com`: DKIM **SUCCESS**,
   hosted zone `dkim.amazonses.com` (the default; no tfvars change needed),
   verified for sending.
-- Beta's SES production access is requested (see the table above). Until
-  AWS grants it, beta is sandboxed: sending enabled, 200 messages a day,
+- Beta's SES production access was requested and denied (see the table
+  above), so beta is sandboxed: sending enabled, 200 messages a day,
   verified recipients only. The account suppresses bounced and complained
   addresses and the configuration set has reputation metrics on; both were
   already so and are cited in the request.
@@ -124,6 +124,9 @@ value in `infra/beta/terraform.tfvars` as `dkim_hosted_zone` and redeploy.
   which every sandbox tester is. The first real code was refused with
   `AccessDeniedException` until the API role's send statement covered
   `identity/*` under a From-address condition (commit `7223cba`).
+- **The ViewOnlyAccess permission set allows only `ses:List*`.** SES Get
+  calls, and so `check-ses.sh`, need the admin profile; the symptom is
+  `AccessDeniedException` on the action, not an expired SSO session.
 - **`MessageRejected` from SES in beta means the recipient is not verified.**
   The mailer reports it as `unverified_recipient` and logs SES's message
   with addresses redacted, so the Lambda log says why on its own.

@@ -17,10 +17,18 @@ if [[ "$(aws sesv2 get-account --query ProductionAccessEnabled --output text)" =
   exit 0
 fi
 status="$(aws sesv2 get-account --query 'Details.ReviewDetails.Status' --output text)"
+case_id="$(aws sesv2 get-account --query 'Details.ReviewDetails.CaseId' --output text)"
 if [[ "$status" == "PENDING" ]]; then
-  case_id="$(aws sesv2 get-account --query 'Details.ReviewDetails.CaseId' --output text)"
-  echo "A request is already under review: case $case_id. Wait for AWS's answer."
+  echo "A request is already under review: support case $case_id. Wait for AWS's answer."
   exit 0
+fi
+if [[ "$status" == "DENIED" && -z "${RESUBMIT:-}" ]]; then
+  cat <<MSG
+The last request for $env_name was denied: support case $case_id. AWS's reasons
+are in that case and in the email it sent. Answer them in the case first; to
+submit a fresh request instead, rerun with RESUBMIT=1.
+MSG
+  exit 1
 fi
 
 # The sending domain, from the environment's Terraform state; the site is
