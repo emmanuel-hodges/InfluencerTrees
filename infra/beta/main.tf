@@ -73,6 +73,11 @@ module "app" {
   founder_email    = var.founder_email
   public_base_url  = "https://${var.domain_name}"
   create_dev_table = true
+
+  # Bounces and complaints email the support inbox; the deploy role gained
+  # sns:* in the bootstrap on 2026-09-20. The inbox confirms the subscription
+  # once (the "AWS Notification - Subscription Confirmation" email).
+  bounce_notification_email = "influencertrees-support@pm.me"
   dkim_hosted_zone = var.dkim_hosted_zone
 }
 

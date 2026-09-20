@@ -32,10 +32,11 @@ Claims in the reply that can go stale, and what to do when they do:
   none exist. The About page stopped promising it on 2026-09-20; when the
   first system email ships, the reply for prod must describe it and the
   preference that turns it off.
-- **The notification topic.** Off until the deploy role has `sns:*` and
-  `bounce_notification_email` is set in the root; the sentence is bracketed
-  in the reply below for that reason. Include it only once the subscription
-  is confirmed.
+- **The notification topic.** Needs `sns:*` on the deploy role and
+  `bounce_notification_email` in the root. Beta has both since 2026-09-20,
+  with the support inbox subscribed; the sentence stays bracketed in the
+  reply below until that inbox has clicked *Confirm subscription*, because
+  until then nothing is delivered. Prod: bootstrap first.
 - **Blocking on request.** Manual today: replies and requests reach the
   support inbox, and the founder runs `aws sesv2 put-suppressed-destination`.
   A stop address on our own domain, received by SES and handled by the API,
