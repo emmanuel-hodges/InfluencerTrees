@@ -3,9 +3,11 @@
 Every new AWS account's SES is in the sandbox and only delivers to verified
 addresses. Leaving it is a request AWS reviews by hand, in a support case.
 The first request, for beta on 2026-09-19, came back within the hour asking
-for more detail. This is the answer that was sent, kept here with the
-addresses blanked so prod's request starts from it. Send the reply in the
-existing case; a fresh request is a duplicate and gets closed.
+for more detail. This is the answer, kept here with placeholders so prod's
+request starts from it. `<contact>` is the support inbox,
+`influencertrees-support@pm.me`, set as `contact_email` in each root and the
+reply-to of every message. Send the reply in the existing case; a fresh
+request is a duplicate and gets closed.
 
 ## What the reviewers want to see
 
@@ -20,6 +22,27 @@ existing case; a fresh request is a duplicate and gets closed.
 The things the product had to gain before the reply could be honest: a
 reply-to address a person reads, public About and Contact pages, and
 bounce and complaint notifications to an inbox.
+
+## Keep this true
+
+Claims in the reply that can go stale, and what to do when they do:
+
+- **"Nothing is sent on a schedule."** True today. System emails are a
+  member preference already (none, quarterly, whenever there is news) but
+  none exist. The About page stopped promising it on 2026-09-20; when the
+  first system email ships, the reply for prod must describe it and the
+  preference that turns it off.
+- **The notification topic.** Off until the deploy role has `sns:*` and
+  `bounce_notification_email` is set in the root; the sentence is bracketed
+  in the reply below for that reason. Include it only once the subscription
+  is confirmed.
+- **Blocking on request.** Manual today: replies and requests reach the
+  support inbox, and the founder runs `aws sesv2 put-suppressed-destination`.
+  A stop address on our own domain, received by SES and handled by the API,
+  is the planned automatic path; when it exists, say so and name it.
+- **Ads.** The site will be ad supported. Ads send no email, so the reply
+  need not mention them, but the About page no longer says "no advertising"
+  and must not be quoted as if it did.
 
 ## The reply
 
@@ -53,9 +76,10 @@ public form, and no address is emailed except by one of these two actions.
 
 **Bounces and complaints.** The account-level suppression list is enabled
 for both, so an address that bounces or complains is blocked from any further
-sending automatically. Every bounce and complaint event is also published to
-an SNS topic that emails the operator, and reputation metrics are enabled on
-the configuration set all mail goes through and watched in CloudWatch.
+sending automatically. *[Once the topic is live:]* Every bounce and complaint
+event is also published to an SNS topic that emails the operator. Reputation
+metrics are enabled on the configuration set all mail goes through and are
+watched in CloudWatch.
 
 **Unsubscribe requests.** Every message is transactional and nothing is sent
 on a schedule, so there is nothing to subscribe to. Every message carries a

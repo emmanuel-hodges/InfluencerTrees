@@ -173,6 +173,14 @@ Recorded as a leaning: nothing needs doing until there is a real app, and
 what had to be decided now is decided (bearer-capable auth, no cookie-only
 assumption, a configurable API base, a mobile-first UI).
 
+### Paying for it — ads, with a paid opt-out
+
+Ad supported, to pay for cloud resources, development, maintenance and
+support; a small subscription removes the ads, and stops again if the
+member opts back in. Recorded 2026-09-20, nothing built. The design doc
+lists what it fixes now: the About page's wording, where the ad-free state
+lives, and the stores' in-app purchase rules for the mobile app.
+
 ### Email
 
 Each account sends as the domain whose zone it owns: beta as

@@ -59,17 +59,16 @@ export function AboutPage() {
           itself always keeps your address, because it is how you sign in.
         </p>
         <p>
-          We do not sell or share this information, show no advertising, and use no analytics or tracking. The only
-          cookie is the one that keeps you signed in. Data is stored with Amazon Web Services in the United States. To
-          have your account and everything it holds deleted, write to <ContactAddress info={info} />.
+          InfluencerTrees does not sell or share this information. Today the only cookie is the one that keeps you
+          signed in; if that changes, this page will say so. To have your account and everything it holds deleted,
+          write to <ContactAddress info={info} />.
         </p>
       </section>
 
       <section className="stack">
         <h2 className="h2">Contact</h2>
         <p>
-          Write to <ContactAddress info={info} />. Replies to any email from InfluencerTrees reach the same address, and
-          a person reads it. See also <Link to="/contact">Contact us</Link>.
+          Write to <ContactAddress info={info} />. See also <Link to="/contact">Contact us</Link>.
         </p>
       </section>
     </div>

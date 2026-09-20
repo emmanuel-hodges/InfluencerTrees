@@ -216,6 +216,34 @@ identity alone.
 
 ---
 
+## Decision: ad supported, with a paid opt-out
+
+Recorded 2026-09-20 from the founder; nothing is built yet.
+
+The website and app will be ad supported, to pay for cloud resources,
+development, maintenance and support. A member can pay a small subscription
+fee to opt out of ads. If the member opts back in to ads, the subscription
+fee stops again.
+
+What this fixes now, so that later work does not fight it:
+
+- The public About page no longer claims that the site shows no advertising
+  or uses no analytics, and says the sign-in cookie is the only cookie
+  *today*. Ads and analytics bring their own cookies and scripts, so the page
+  must change the day they land.
+- Whether a member sees ads is a fact about the member, so it lives on the
+  influencer record or a subscription-shaped item in the single table: a new
+  item shape, not a new table, per the key-schema decision.
+- On iOS and Android, a subscription bought inside the app must go through
+  the store's own in-app purchase, which takes a commission; the web can use
+  a card processor directly. So the ad-free state has to be settable from
+  more than one payment source, and the API, not the client, decides whether
+  ads show.
+- Email is unaffected: ads and subscriptions send no mail, and the SES story
+  stays transactional-only until system emails exist.
+
+---
+
 ## What changed in the pipeline
 
 - The bootstrap deploy role gained `dynamodb:*` and `ses:*` for the control
