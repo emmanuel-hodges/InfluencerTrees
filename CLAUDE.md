@@ -224,8 +224,8 @@ or write to the support inbox. Bounces and complaints can
 notify that inbox too: set the app module's `bounce_notification_email`
 and confirm the subscription email once. That needs `sns:*` on the deploy
 role, added to the bootstrap on 2026-09-20 and applied by hand per account:
-done in beta the same day, where the support inbox is subscribed; prod
-before its own request.
+done in beta the same day, where the support inbox is subscribed and
+confirmed; prod before its own request.
 
 **Every sent message must carry `influencertrees-support@pm.me` in the reply-to field.** This is non-negotiable for SES compliance and the user experience.
 

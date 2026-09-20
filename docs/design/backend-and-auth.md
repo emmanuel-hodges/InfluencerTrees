@@ -199,7 +199,8 @@ and who sees it, and `/contact` says how to reach a person, be blocked from
 further mail, or have an account deleted; every invitation links `/about`
 and says how to make sure nothing more arrives. And
 the app module can publish bounces and complaints to an SNS topic that emails
-an inbox, off until the deploy role has `sns:*`. The reply itself is kept in
+an inbox: live in beta since 2026-09-20, and off in any account until its
+deploy role has `sns:*`. The reply itself is kept in
 `docs/ses-production-access.md` so prod's request starts from it.
 
 **Every sent message must carry `influencertrees-support@pm.me` in the reply-to field.** This is non-negotiable for SES compliance and the user experience.

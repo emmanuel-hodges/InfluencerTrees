@@ -34,9 +34,9 @@ Claims in the reply that can go stale, and what to do when they do:
   preference that turns it off.
 - **The notification topic.** Needs `sns:*` on the deploy role and
   `bounce_notification_email` in the root. Beta has both since 2026-09-20,
-  with the support inbox subscribed; the sentence stays bracketed in the
-  reply below until that inbox has clicked *Confirm subscription*, because
-  until then nothing is delivered. Prod: bootstrap first.
+  and the support inbox confirmed its subscription the same day, so the
+  sentence in the reply is true for beta. Prod: bootstrap first, then the
+  confirmation click, before claiming it.
 - **Blocking on request.** Manual today: replies and requests reach the
   support inbox, and the founder runs `aws sesv2 put-suppressed-destination`.
   A stop address on our own domain, received by SES and handled by the API,
@@ -53,9 +53,10 @@ Claims in the reply that can go stale, and what to do when they do:
 ## The reply
 
 Replace `<site>`, `<domain>` and `<contact>`; delete the beta sentence for
-prod. This is the founder's edited version of 2026-09-20 with three fixes:
-the consent sentence said the opposite of what it meant, the reply-to named
-the founder, and the invitation sample had to match what the code sends.
+prod. This is what the founder sent in beta's case on 2026-09-20, after
+three fixes to the draft: the consent sentence had said the opposite of what
+it meant, the reply-to had named the founder, and the invitation sample had
+to match what the code sends.
 
 ---
 
@@ -76,20 +77,21 @@ member, described in the paragraph below. Expected volume is under 100
 messages a day at this stage. We have not asked for a quota above the
 default.
 
-**How recipient lists are maintained.** The email "list" only grows when a
-member convinces someone to become a part of growing an idea. (1) A
+**How recipient lists are maintained.** The email "list" is only grown from
+a user convincing others to become a part of growing an idea. (1) A
 six-digit sign-in code goes to a member's own address when they ask to sign
 in; there are no passwords. (2) One invitation goes to a person whose
 address a signed-in member types in after speaking with that person, who
 agreed to join. No addresses are imported, purchased, scraped or collected
 from a public form, and today no address is emailed except by one of these
-two actions. Every email is the result of a member's own action and consent,
-and a member can have their account deleted at any time (`<site>/about`).
+two actions. Any email that gets sent out would be as a result of the consent
+of the member and the member can have their account deleted at any time
+(`<site>/about`).
 
 **Bounces and complaints.** The account-level suppression list is enabled
 for both, so an address that bounces or complains is blocked from any further
-sending automatically. *[Once the topic is live:]* Every bounce and complaint
-event is also published to an SNS topic that emails the operator. Reputation
+sending automatically. Every bounce and complaint event is also published to
+an SNS topic that emails the operator. Reputation
 metrics are enabled on the configuration set all mail goes through and are
 watched in CloudWatch.
 
