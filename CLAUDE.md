@@ -223,6 +223,8 @@ notify that inbox too: set the app module's `bounce_notification_email`
 and confirm the subscription email once. That needs `sns:*` on the deploy
 role, added to the bootstrap on 2026-09-20 and applied by hand per account.
 
+**Every sent message must carry `influencertrees-support@pm.me` in the reply-to field.** This is non-negotiable for SES compliance and the user experience.
+
 ## Decisions still open
 
 None at present. The two that were open, mobile approach and backend shape,

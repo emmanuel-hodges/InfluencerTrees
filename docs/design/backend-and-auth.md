@@ -201,6 +201,8 @@ the app module can publish bounces and complaints to an SNS topic that emails
 an inbox, off until the deploy role has `sns:*`. The reply itself is kept in
 `docs/ses-production-access.md` so prod's request starts from it.
 
+**Every sent message must carry `influencertrees-support@pm.me` in the reply-to field.** This is non-negotiable for SES compliance and the user experience.
+
 The sandbox shows up in the application as a refused send. The SES mailer
 tells that refusal (`MessageRejected`, naming the recipient) apart from any
 other failure and reports `unverified_recipient`; the intake and resend
