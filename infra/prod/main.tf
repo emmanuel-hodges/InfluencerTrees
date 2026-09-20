@@ -41,6 +41,7 @@ module "app" {
   hosted_zone_id   = data.aws_route53_zone.site.zone_id
   api_zip_path     = var.api_zip_path
   founder_email    = var.founder_email
+  contact_email    = "influencertrees-support@pm.me"
   public_base_url  = "https://${var.domain_name}"
   create_dev_table = false
   dkim_hosted_zone = var.dkim_hosted_zone

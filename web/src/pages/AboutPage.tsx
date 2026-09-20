@@ -23,8 +23,7 @@ export function AboutPage() {
         <p>
           Someone who has been convinced of an idea becomes an influencer for it and can convince others in turn.
           InfluencerTrees records who convinced whom, so an idea grows as a tree of people who have actually talked
-          to each other, not as a mailing list. The first idea on the site is “Elect Democratic US House and Senate
-          Legislators”.
+          to each other, not as a mailing list.
         </p>
         <p>
           There is no sign-up form. You join when an influencer who has talked with you enters your email address, and
@@ -44,18 +43,18 @@ export function AboutPage() {
             can resend it, at most once every ten minutes.
           </li>
         </ul>
-        <p>Nothing is sent on a schedule. There is no newsletter and no marketing.</p>
         <p>
-          If you did not expect an invitation, ignoring it is enough. To be sure you never hear from us again, reply
-          to any email from us or write to <ContactAddress info={info} />, and we will block your address.
+          If you did not expect an invitation, ignoring it is enough. To stop email from InfluencerTrees, reply to any
+          email we have sent you or write to <ContactAddress info={info} />, and we will block your address. Our
+          emails come from <code>{sender}</code>, but a reply to them still reaches that same address.
         </p>
       </section>
 
       <section className="stack">
         <h2 className="h2">What we keep, and who sees it</h2>
         <p>
-          Your email address; the codename and avatar you confirm; if you gave them, your state, ZIP code,
-          congressional district, phone number and your answers about voter registration; and who convinced whom.
+          Your email address; the codename and avatar you confirm; if you gave them, your state, ZIP code, phone
+          number, and answers about the particular idea you chose to be a part of; and who convinced you to join.
           You choose who among the people in your idea’s tree can see your email address and phone number. The site
           itself always keeps your address, because it is how you sign in.
         </p>

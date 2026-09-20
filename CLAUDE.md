@@ -206,8 +206,9 @@ the API reports `unverified_recipient`, and the site says the address has
 to be verified.
 
 Every message carries a reply-to that a person reads, `CONTACT_EMAIL` in
-the Lambda: the founder's address unless the app module's `contact_email`
-says otherwise. The same address is on the public `/about` and `/contact`
+the Lambda: the app module's `contact_email`, `influencertrees-support@pm.me`
+in both roots, with the founder's address as the fallback when it is unset.
+The same address is on the public `/about` and `/contact`
 pages, which also say what the site is, what it sends, how to stop it and
 what it keeps; every invitation links `/about`. Bounces and complaints can
 notify that inbox too: set the app module's `bounce_notification_email`

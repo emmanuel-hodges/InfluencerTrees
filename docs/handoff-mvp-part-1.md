@@ -163,3 +163,8 @@ value in `infra/beta/terraform.tfvars` as `dkim_hosted_zone` and redeploy.
 - The beta SSO session may be used for local runs against
   `inftrees-app-dev` and for the bootstrap apply.
 - Docker and Java are not needed and were not installed.
+- Contact and reply-to address (2026-09-20): `influencertrees-support@pm.me`,
+  a support inbox the founder reads, set as `contact_email` in both roots.
+  The About page no longer names the first idea, and no longer promises
+  that nothing is sent on a schedule, since system emails are a planned
+  preference.
